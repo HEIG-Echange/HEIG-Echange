@@ -19,14 +19,7 @@ Brouillon
 
 ## Gestion des tâches
 
-Adam (sécu/DevOps)
+Adam setup et pipeline
 
-Semaine 1, setup et pipeline
-
-Déjà fait
-
-- Setup de base du repo, gitignore, squelette de la documentation
-- Squelettes des workflows CI et CD
-- Rédaction de la description du projet et des choix techniques
 
 ## Communication
