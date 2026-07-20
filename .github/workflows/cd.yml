@@ -11,7 +11,7 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # TODO build image docker -> push ghcr.io -> deploy hook Render
       - run: echo "TODO deploy"
