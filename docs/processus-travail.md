@@ -2,13 +2,6 @@
 
 Brouillon
 
-## Équipe et rôles
-
-- Adam
-- Jeffrey
-- Sofia
-- Vincent
-
 ## Git flow
 
 - main est protégée et toujours déployable
@@ -16,10 +9,3 @@ Brouillon
 - on push, on ouvre une pull request vers main
 - il faut une review d'un autre membre et la CI verte pour merger
 - au merge, le déploiement se fait automatiquement
-
-## Gestion des tâches
-
-Adam setup et pipeline
-
-
-## Communication
