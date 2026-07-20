@@ -4,8 +4,7 @@ Brouillon
 
 ## Équipe et rôles
 
-- Adam, sécurité et DevOps. Pipeline CI/CD, protection de la branche main, 
-  gestion des secrets, authentification, audits de sécurité
+- Adam
 - Jeffrey
 - Sofia
 - Vincent
