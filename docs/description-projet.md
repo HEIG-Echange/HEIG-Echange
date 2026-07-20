@@ -1,6 +1,6 @@
-# Description du projet
+# Description du projet (brouillon)
 
-## 1. Problématique
+## 1. Problématique (brouillon)
 
 Les étudiants ont peu d'argent, et pourtant plein d'objets dorment dans les armoires. 
 Des livres de cours déjà lus, du matériel d'anciens semestres, des meubles laissés en fin de bail. 
@@ -15,7 +15,7 @@ Il n'existe aucun endroit centralisé pour voir ce qui est disponible sur le cam
 Une annonce ne touche que son petit cercle, le groupe de classe ou les amis proches. 
 Et organiser la remise en main propre se perd dans des messages éparpillés.
 
-## 2. Solution
+## 2. Solution (brouillon)
 
 HEIG·Échange est la plateforme de don entre étudiants de la HEIG-VD.
 
@@ -67,7 +67,7 @@ on ne sait jamais qui demande ni qui reçoit les objets, donc impossible de comp
 Pour que ça marche il faut que la demande se fasse dans l'app (bouton "Demander cet objet") 
 et qu'à la fermeture du poste le donneur indique qui a reçu l'objet. 
 
-## 4. Requirements fonctionnels
+## 4. Requirements fonctionnels (brouillon)
 
 ### MVP
 
@@ -91,7 +91,7 @@ et qu'à la fermeture du poste le donneur indique qui a reçu l'objet.
   À la publication, l'option "Prioritaires d'abord" réserve l'annonce 48h aux amis 
   avant de l'ouvrir à toute la communauté (badge "Prioritaires" sur la carte)
 
-### Itérations futures
+### Itérations futures (brouillon)
 
 - Extension aux services et au tutorat, avec le prix indiqué directement 
   dans la description de l'annonce (voir section 3)
@@ -118,7 +118,7 @@ Landing page réalisé par ?.
 La landing page (site vitrine du projet) sera hébergée sur GitHub Pages 
 et déployée automatiquement par le pipeline.
 
-## 6. Requirements non-fonctionnels
+## 6. Requirements non-fonctionnels (brouillon)
 
 - Mobile-first, les étudiants utilisent surtout leur téléphone
 - Aucune donnée accessible sans être connecté, l'accès est réservé aux étudiants de l'école 
@@ -132,10 +132,6 @@ et déployée automatiquement par le pipeline.
 ## 7. Décisions ouvertes
 
 - Don d'objets (section 3), tranché au meeting, reste à valider par Jeffrey et Sofia
-- Proposition d'équilibre du don (section 3), à discuter tous ensemble
-- Hébergement de l'app. Le pipeline CI/CD reste sur GitHub Actions (décision DevOps), 
-  l'hébergement doit être complètement gratuit, reste à choisir où (Render, Azure gratuit, autre)
-- Login Microsoft, vérifier qu'on peut enregistrer 
-  notre application dans le tenant Microsoft (nécessaire pour le login du MVP, 
-  et plus tard pour le bot Teams). Risque technique.
+- Proposition d'équilibre du don (section 3), à valider par l'équipe
+- L'hébergement doit être complètement gratuit, reste à choisir où (Render, Azure gratuit, autre)
 - Périmètre exact du MVP, à confirmer une fois les points ci-dessus tranchés
