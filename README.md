@@ -1,2 +1,2 @@
 # HEIG-Echange
-Projet PDG 2026. Plateforme de troc entre étudiants de HEIG
+Projet PDG 2026. Plateforme d'échange entre étudiants de HEIG
