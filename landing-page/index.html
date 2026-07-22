@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title> Échange — Donnez une seconde vie à vos objets</title>
+<meta name="description" content="La plateforme de don entre étudiants de la HEIG-VD : publie ce qui dort dans ton armoire, trouve ce qu'il te faut — gratuitement." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          brand: {
+            DEFAULT: '#c8102e',
+            dark: '#a30d25',
+            light: '#f9e4e7',
+          },
+          appbg: '#f5f4f0',
+          appfg: '#1a1816',
+          secondarybg: '#f0ede8',
+          mutedbg: '#e8e5e0',
+          mutedfg: '#7a7670',
+        },
+        fontFamily: {
+          sans: ['"Plus Jakarta Sans"', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        },
+      },
+    },
+  }
+</script>
+<style>
+  body { font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+  .phone-frame {
+    box-shadow: 0 30px 60px -20px rgba(0,0,0,0.35), 0 10px 20px -8px rgba(0,0,0,0.15);
+  }
+</style>
+</head>
+<body class="bg-white text-appfg antialiased">
+
+  <!-- Nav -->
+  <header class="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-gray-100">
+    <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div class="leading-tight">
+        <p class="text-xs tracking-widest text-gray-400 uppercase">HEIG-VD</p>
+        <p class="text-xl font-extrabold text-brand -mt-1">Échange</p>
+      </div>
+      <a href="https://github.com/HEIG-Echange/HEIG-Echange" target="_blank" rel="noopener"
+         class="inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-brand transition-colors">
+        <svg class="w-5 h-5" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+          <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
+          0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13
+          -.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07
+          -1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82
+          a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15
+          0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38
+          A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/>
+        </svg>
+        Voir sur GitHub
+      </a>
+    </div>
+  </header>
+
+  <section class="max-w-6xl mx-auto px-6 pt-14 pb-20 grid md:grid-cols-2 gap-12 items-center">
+    <div>
+      <span class="inline-block bg-brand-light text-brand text-xs font-semibold px-3 py-1 rounded-full mb-5">
+        Projet PDG 2026 · HEIG-VD
+      </span>
+      <h1 class="text-4xl sm:text-5xl font-extrabold tracking-tight leading-tight">
+        Ce qui dort dans ton armoire<br class="hidden sm:block" />
+        peut manquer à quelqu'un d'autre.
+      </h1>
+      <p class="mt-6 text-lg text-gray-600 max-w-md">
+        Un recueil d'exercices, un chargeur qui traîne, un vélo qui prend la poussière :
+        HEIG-Échange rassemble tous les dons entre collaborateurs de la HEIG-VD au même endroit. Fini les groupes WhatsApp et les affiches dans les couloirs.
+      </p>
+      <div class="mt-8 grid grid-cols-3 gap-4 max-w-md">
+        <div>
+          <p class="text-2xl font-extrabold text-brand">0.-</p>
+          <p class="text-xs text-gray-500 mt-0.5">Toujours gratuit</p>
+        </div>
+        <div>
+          <p class="text-2xl font-extrabold text-brand">100%</p>
+          <p class="text-xs text-gray-500 mt-0.5">Réservé HEIG-VD</p>
+        </div>
+        <div>
+          <p class="text-2xl font-extrabold text-brand">48h</p>
+          <p class="text-xs text-gray-500 mt-0.5">Priorité aux amis</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Phone mockup — -->
+    <div class="flex justify-center">
+      <div class="phone-frame relative w-[300px] h-[610px] bg-appfg/10 rounded-[44px] p-2 border-4 border-appfg/10">
+        <div class="w-full h-full bg-appbg rounded-[36px] overflow-hidden flex flex-col">
+          <!-- status bar -->
+          <div class="flex-shrink-0 h-10 bg-white flex items-center justify-between px-5">
+            <span class="text-[11px] font-bold text-appfg">9:41</span>
+            <div class="flex items-center gap-1 text-[10px] text-appfg/70">📶 🔋</div>
+          </div>
+          <!-- app header -->
+          <div class="flex-shrink-0 px-4 pt-3 pb-2.5 bg-white border-b border-appfg/10">
+            <div class="flex items-center justify-between mb-2.5">
+              <div>
+                <p class="text-[10px] text-mutedfg font-semibold">HEIG-VD</p>
+                <p class="text-lg font-extrabold text-appfg tracking-tight -mt-0.5">Échange</p>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <div class="flex items-center gap-1 bg-secondarybg border border-appfg/10 rounded-full px-2 py-0.5">
+                  <div class="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                  <span class="text-[10px] font-mono text-mutedfg">6</span>
+                </div>
+                <div class="w-7 h-7 rounded-full bg-secondarybg border border-appfg/10 flex items-center justify-center text-xs">🔔</div>
+              </div>
+            </div>
+            <div class="bg-secondarybg border border-appfg/10 rounded-xl px-3 py-2 text-[11px] text-mutedfg">Rechercher…</div>
+          </div>
+          <div class="flex-shrink-0 flex gap-1.5 px-4 py-2.5 overflow-x-auto bg-white border-b border-appfg/10 text-[10px] font-bold">
+            <span class="flex-shrink-0 bg-brand text-white rounded-full px-3 py-1.5 border border-brand whitespace-nowrap">Tout</span>
+            <span class="flex-shrink-0 bg-white text-mutedfg rounded-full px-3 py-1.5 border border-appfg/10 whitespace-nowrap">Électronique</span>
+            <span class="flex-shrink-0 bg-white text-mutedfg rounded-full px-3 py-1.5 border border-appfg/10 whitespace-nowrap">Livres &amp; Cours</span>
+            <span class="flex-shrink-0 bg-white text-mutedfg rounded-full px-3 py-1.5 border border-appfg/10 whitespace-nowrap">Mobilier</span>
+          </div>
+          <div class="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+            <div class="bg-white border border-appfg/10 rounded-2xl overflow-hidden">
+              <div class="relative h-32 bg-mutedbg">
+                <img src="https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=400&h=300&fit=crop&auto=format" alt="Calculatrice HP Prime G2" class="w-full h-full object-cover" loading="lazy" />
+                <span class="absolute top-2 left-2 text-[9px] font-semibold px-2 py-0.5 rounded-full border bg-blue-50 text-blue-700 border-blue-200">Électronique</span>
+              </div>
+              <div class="p-3">
+                <p class="text-sm font-bold text-appfg leading-snug">Calculatrice HP Prime G2</p>
+                <p class="text-[11px] text-mutedfg mt-0.5 line-clamp-1">Utilisée pendant 2 semestres, en parfait état…</p>
+                <div class="flex items-center justify-between mt-2.5">
+                  <div class="flex items-center gap-1.5">
+                    <div class="w-5 h-5 rounded-full bg-brand text-white text-[9px] font-bold flex items-center justify-center">LF</div>
+                    <span class="text-[11px] text-mutedfg">Lucas</span>
+                  </div>
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-[9px] text-mutedfg">📍 Y-Parc</span>
+                    <span class="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-sky-50 text-sky-700">Très bon état</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-white border border-appfg/10 rounded-2xl overflow-hidden">
+              <div class="relative h-32 bg-mutedbg">
+                <img src="https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=400&h=300&fit=crop&auto=format" alt="Analyse 1 — Recueil d'exercices EPFL" class="w-full h-full object-cover" loading="lazy" />
+                <span class="absolute top-2 left-2 text-[9px] font-semibold px-2 py-0.5 rounded-full border bg-amber-50 text-amber-700 border-amber-200">Livres &amp; Cours</span>
+              </div>
+              <div class="p-3">
+                <p class="text-sm font-bold text-appfg leading-snug">Analyse 1 — Recueil d'exercices EPFL</p>
+                <p class="text-[11px] text-mutedfg mt-0.5 line-clamp-1">Fascicule corrigé, quelques annotations au crayon…</p>
+                <div class="flex items-center justify-between mt-2.5">
+                  <div class="flex items-center gap-1.5">
+                    <div class="w-5 h-5 rounded-full bg-brand text-white text-[9px] font-bold flex items-center justify-center">AB</div>
+                    <span class="text-[11px] text-mutedfg">Amina</span>
+                  </div>
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-[9px] text-mutedfg">📍 HEIG-VD</span>
+                    <span class="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700">Bon état</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-white border border-appfg/10 rounded-2xl overflow-hidden">
+              <div class="relative h-32 bg-mutedbg">
+                <img src="https://images.unsplash.com/photo-1518770660439-4636190af475?w=400&h=300&fit=crop&auto=format" alt="Raspberry Pi 4 — 4 Go RAM" class="w-full h-full object-cover" loading="lazy" />
+                <span class="absolute top-2 left-2 text-[9px] font-semibold px-2 py-0.5 rounded-full border bg-blue-50 text-blue-700 border-blue-200">Électronique</span>
+              </div>
+              <div class="p-3">
+                <p class="text-sm font-bold text-appfg leading-snug">Raspberry Pi 4 — 4 Go RAM</p>
+                <p class="text-[11px] text-mutedfg mt-0.5 line-clamp-1">Complet avec boîtier officiel, carte SD 32 Go…</p>
+                <div class="flex items-center justify-between mt-2.5">
+                  <div class="flex items-center gap-1.5">
+                    <div class="w-5 h-5 rounded-full bg-brand text-white text-[9px] font-bold flex items-center justify-center">TM</div>
+                    <span class="text-[11px] text-mutedfg">Tom</span>
+                  </div>
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-[9px] text-mutedfg">📍 Yverdon</span>
+                    <span class="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-sky-50 text-sky-700">Très bon état</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- bottom nav -->
+          <div class="flex-shrink-0 h-[64px] bg-white border-t border-appfg/10 flex items-stretch px-2">
+            <div class="flex-1 flex flex-col items-center justify-center gap-1 text-brand">
+              <span class="text-base leading-none">▦</span>
+              <span class="text-[9px] font-bold">Accueil</span>
+            </div>
+            <div class="flex-1 flex items-center justify-center">
+              <div class="w-11 h-11 -mt-4 rounded-full bg-brand shadow-lg flex items-center justify-center text-white text-xl font-bold">+</div>
+            </div>
+            <div class="flex-1 flex flex-col items-center justify-center gap-1 text-mutedfg">
+              <span class="text-base leading-none">◯</span>
+              <span class="text-[9px] font-bold">Profil</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="fonctionnalites" class="max-w-6xl mx-auto px-6 py-20">
+    <h2 class="text-3xl font-extrabold text-center">Tout ce qu'il te faut pour donner (ou récupérer)</h2>
+    <p class="mt-3 text-gray-500 text-center max-w-2xl mx-auto">
+      Réservée aux étudiants de la HEIG-VD, connectée à l'écosystème Microsoft que tu utilises déjà.
+    </p>
+    <div class="mt-12 grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div class="p-6 rounded-2xl border border-gray-100 hover:border-brand/40 hover:shadow-lg transition-all">
+        <div class="w-11 h-11 rounded-xl bg-brand-light flex items-center justify-center text-xl">📷</div>
+        <h3 class="mt-4 font-bold">Publier une annonce</h3>
+        <p class="mt-2 text-sm text-gray-500">Une photo, un titre et l'état de l'objet : ton annonce est en ligne en moins d'une minute.</p>
+      </div>
+      <div class="p-6 rounded-2xl border border-gray-100 hover:border-brand/40 hover:shadow-lg transition-all">
+        <div class="w-11 h-11 rounded-xl bg-brand-light flex items-center justify-center text-xl">🔍</div>
+        <h3 class="mt-4 font-bold">Rechercher &amp; filtrer</h3>
+        <p class="mt-2 text-sm text-gray-500">Électronique, livres &amp; cours, mobilier… filtre par catégorie et trouve ce qu'il te faut direct.</p>
+      </div>
+      <div class="p-6 rounded-2xl border border-gray-100 hover:border-brand/40 hover:shadow-lg transition-all">
+        <div class="w-11 h-11 rounded-xl bg-brand-light flex items-center justify-center text-xl">💬</div>
+        <h3 class="mt-4 font-bold">Contact via Teams</h3>
+        <p class="mt-2 text-sm text-gray-500">Écris directement à la personne qui donne, sans laisser ton numéro à un inconnu.</p>
+      </div>
+      <div class="p-6 rounded-2xl border border-gray-100 hover:border-brand/40 hover:shadow-lg transition-all">
+        <div class="w-11 h-11 rounded-xl bg-brand-light flex items-center justify-center text-xl">⭐</div>
+        <h3 class="mt-4 font-bold">Amis prioritaires</h3>
+        <p class="mt-2 text-sm text-gray-500">Réserve ton annonce 48h à ta classe ou ton groupe d'amis avant de l'ouvrir à tout le campus.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="bg-gray-50 py-20">
+    <div class="max-w-5xl mx-auto px-6">
+      <h2 class="text-3xl font-extrabold text-center">Comment ça marche</h2>
+      <div class="mt-12 grid sm:grid-cols-3 gap-8 text-center">
+        <div>
+          <div class="w-12 h-12 mx-auto rounded-full bg-brand text-white font-bold flex items-center justify-center">1</div>
+          <h3 class="mt-4 font-bold">Tu publies ton objet</h3>
+          <p class="mt-2 text-sm text-gray-500">Une photo, et c'est en ligne.</p>
+        </div>
+        <div>
+          <div class="w-12 h-12 mx-auto rounded-full bg-brand text-white font-bold flex items-center justify-center">2</div>
+          <h3 class="mt-4 font-bold">Quelqu'un veut ton objet</h3>
+          <p class="mt-2 text-sm text-gray-500">Tu vois tout de suite qui est intéressé.</p>
+        </div>
+        <div>
+          <div class="w-12 h-12 mx-auto rounded-full bg-brand text-white font-bold flex items-center justify-center">3</div>
+          <h3 class="mt-4 font-bold">Vous fixez un rendez-vous</h3>
+          <p class="mt-2 text-sm text-gray-500">Vous choisissez le lieu et l'heure, sur le campus.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="border-t border-gray-100">
+    <div class="max-w-6xl mx-auto px-6 py-10 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="text-sm text-gray-400">
+        HEIG-Échange — Projet de groupe (PDG), HEIG-VD, 2026
+      </div>
+      <nav class="flex items-center gap-6 text-sm font-medium text-gray-500">
+        <a href="#fonctionnalites" class="hover:text-brand transition-colors">Fonctionnalités</a>
+        <a href="https://github.com/HEIG-Echange/HEIG-Echange" target="_blank" rel="noopener" class="hover:text-brand transition-colors">GitHub</a>
+      </nav>
+    </div>
+  </footer>
+
+</body>
+</html>
