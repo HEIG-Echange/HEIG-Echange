@@ -1,0 +1,29 @@
+services:
+  app:
+    build:
+      context: .
+      target: development
+
+    container_name: heig-echange-dev
+
+    ports:
+      - "3000:3000"
+
+    env_file:
+      - .env
+
+    volumes:
+      # Le code local est monté dans le conteneur
+      - code:/app
+
+      - code/node_modules:/app/node_modules
+
+    command: npm run dev
+
+    environment:
+      NODE_ENV: development
+
+    restart: unless-stopped
+
+volumes:
+  node_modules:
