@@ -18,28 +18,40 @@ Chaîne complète : [cd.yml](../.github/workflows/cd.yml) valide le commit
 
 ## Configuration du pipeline
 
-Tout est porté par les **environnements GitHub** (`Settings > Environments`), un
-par cible. C'est ce qui permet à staging et production de viser des machines,
-des ports et des utilisateurs différents sans dupliquer le workflow.
+Toute la configuration passe par des **secrets GitHub** (`Settings > Secrets and
+variables > Actions`), transmis à `deploy.yml` via `secrets: inherit`. Deux
+niveaux se combinent :
 
-### Variables (non sensibles)
+- **Secrets de repository** : partagés par staging et production. C'est le bon
+  niveau tant que les deux environnements sont sur la **même machine**.
+- **Secrets d'environnement** (`Settings > Environments > staging|production`) :
+  propres à un environnement, et **prioritaires** sur un secret de repository de
+  même nom (car le job `deploy` déclare `environment:`).
 
-| Variable | Requis | Défaut | Rôle |
+### Secrets de repository (partagés)
+
+| Secret | Requis | Défaut | Rôle |
 |---|---|---|---|
 | `DEPLOY_HOST` | oui | — | nom d'hôte ou IP de la machine |
 | `DEPLOY_USER` | oui | — | utilisateur SSH, membre du groupe `docker` |
 | `DEPLOY_PORT` | non | `22` | port SSH |
-| `DEPLOY_PATH` | non | valeur du tableau ci-dessus | dossier de déploiement |
+| `DEPLOY_SSH_PRIVATE_KEY` | oui | — | clé privée de déploiement, **sans passphrase** |
+| `DEPLOY_SSH_KNOWN_HOSTS` | oui | — | clé publique de l'hôte, pour vérifier la machine |
 
-`DEPLOY_PATH` n'est à définir que pour sortir de l'arborescence par défaut : les
-deux chemins sont déjà câblés dans `cd.yml`.
+### Secret d'environnement (une valeur par environnement)
 
-### Secrets
+| Secret | Où | Rôle |
+|---|---|---|
+| `DEPLOY_PATH` | dans **chaque** environnement | dossier de déploiement de cet environnement |
 
-| Secret | Rôle |
-|---|---|
-| `DEPLOY_SSH_PRIVATE_KEY` | clé privée de déploiement, **sans passphrase** |
-| `DEPLOY_SSH_KNOWN_HOSTS` | clé publique de l'hôte, pour vérifier la machine |
+`DEPLOY_PATH` **doit** être défini par environnement, car staging et production
+visent des dossiers différents. Ne le mettez **pas** en secret de repository :
+une valeur unique écraserait les deux environnements avec le même chemin.
+
+Les chemins par défaut (`/home/heigdeploy/heig/staging-pdg` et
+`/home/heigdeploy/heig/prod-pdg`) sont déjà câblés dans `cd.yml` (entrée
+`deploy_path`) : `deploy.yml` s'en sert en repli si le secret d'environnement
+`DEPLOY_PATH` est absent. Le définir explicitement reste recommandé.
 
 La vérification de l'hôte est active (`StrictHostKeyChecking yes`). Récupérer la
 ligne `known_hosts` depuis un poste de confiance :
