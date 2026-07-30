@@ -61,7 +61,7 @@ jobs:
       - name: Controle de la configuration
         env:
           SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
-          SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+          SSH_KNOWN_HOSTS: ${{ vars.DEPLOY_SSH_KNOWN_HOSTS }}
         run: |
           erreurs=0
           manque() { echo "::error::configuration manquante pour l'environnement $DEPLOY_ENV : $1"; erreurs=1; }
@@ -93,7 +93,7 @@ jobs:
       - name: Configuration de la cle SSH
         env:
           SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
-          SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+          SSH_KNOWN_HOSTS: ${{ vars.DEPLOY_SSH_KNOWN_HOSTS }}
         run: |
           install -d -m 700 ~/.ssh
           printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
@@ -119,6 +119,7 @@ jobs:
             Port $DEPLOY_PORT
             IdentityFile ~/.ssh/deploy_key
             IdentitiesOnly yes
+            # StrictHostKeyChecking yes
             BatchMode yes
             ConnectTimeout 15
             ServerAliveInterval 30
