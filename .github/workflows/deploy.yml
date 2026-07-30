@@ -101,6 +101,15 @@ jobs:
           printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
+          # Le pipeline s'authentifie sans interaction possible (BatchMode) :
+          # une cle protegee par une passphrase ne pourrait pas etre dechiffree.
+          # On le detecte ici, avec un message clair, plutot que de laisser
+          # echouer l'authentification plus loin sur un "Permission denied".
+          if ! ssh-keygen -y -P '' -f ~/.ssh/deploy_key >/dev/null 2>&1; then
+            echo "::error::DEPLOY_SSH_PRIVATE_KEY est invalide ou protegee par une passphrase. Voir docs/deploiement.md"
+            exit 1
+          fi
+
           # L'hote est verifie via known_hosts. Pas de StrictHostKeyChecking=no :
           # ca accepterait n'importe quelle machine se presentant a cette adresse.
           cat > ~/.ssh/config <<CONFIG
@@ -116,6 +125,11 @@ jobs:
             ServerAliveInterval 30
           CONFIG
           chmod 600 ~/.ssh/config
+
+      # Echoue avant tout transfert si la cle n'est pas autorisee sur la machine
+      # ou si la cle d'hote ne correspond pas a known_hosts.
+      - name: Test de la connexion SSH
+        run: ssh deploy-target 'echo "connexion OK sur $(hostname)"'
 
       - name: Archive des sources du commit
         run: |

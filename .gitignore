@@ -11,6 +11,15 @@ coverage/
 .env.*
 !.env.example
 
+# Clefs SSH — ne doivent jamais entrer dans le depot, meme temporairement
+*_deploy_key
+*_deploy_key_ci
+*_deploy_key.pub
+*.pem
+id_ed25519*
+id_rsa*
+known_hosts.txt
+
 # IDE
 .idea/
 .vscode/
