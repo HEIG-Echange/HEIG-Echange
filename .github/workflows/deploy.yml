@@ -119,7 +119,6 @@ jobs:
             Port $DEPLOY_PORT
             IdentityFile ~/.ssh/deploy_key
             IdentitiesOnly yes
-            StrictHostKeyChecking yes
             BatchMode yes
             ConnectTimeout 15
             ServerAliveInterval 30
