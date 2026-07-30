@@ -1,0 +1,35 @@
+# ---------------------------------------------------------------------------
+# HEIG-Echange — surcouche de developpement (hot reload)
+#
+#   docker compose -f compose.yaml -f compose.dev.yaml up --build
+#
+# Fichier volontairement non nomme compose.override.yaml : la surcouche doit
+# etre demandee explicitement, pour qu'un "docker compose up" simple lance
+# toujours la configuration de production.
+# ---------------------------------------------------------------------------
+services:
+  app:
+    build:
+      target: dev
+    image: heig-echange:dev
+
+    environment:
+      NODE_ENV: development
+
+    # tsc doit pouvoir ecrire dans /app/dist.
+    read_only: false
+
+    # Sources montees en lecture seule : le conteneur observe le code de
+    # l'hote mais ne le modifie jamais. dist/ et node_modules restent internes
+    # au conteneur, donc pas de conflit avec une installation locale.
+    volumes:
+      - ./src:/app/src:ro
+      - ./tsconfig.json:/app/tsconfig.json:ro
+
+    # Un changement de dependances ne peut pas etre pris en compte a chaud :
+    # avec `docker compose ... watch`, l'image est alors reconstruite.
+    develop:
+      watch:
+        - action: rebuild
+          path: package-lock.json
+

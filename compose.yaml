@@ -1,0 +1,63 @@
+# ---------------------------------------------------------------------------
+# HEIG-Echange — execution locale de l'image de production
+#
+#   docker compose up --build          construit et lance
+#   docker compose down                arrete et nettoie
+#
+# Pour le developpement avec rechargement a chaud, voir compose.dev.yaml.
+# ---------------------------------------------------------------------------
+name: heig-echange
+
+services:
+  app:
+    build:
+      context: .
+      target: runner
+      args:
+        VERSION: ${VERSION:-0.1.0}
+        REVISION: ${REVISION:-local}
+    image: heig-echange:${VERSION:-local}
+
+    # Reaper de PID 1 : evite l'accumulation de processus zombies.
+    init: true
+    restart: unless-stopped
+
+    # .env est optionnel : le projet demarre avec ses valeurs par defaut.
+    env_file:
+      - path: .env
+        required: false
+
+    # Declare apres env_file, donc prioritaire : le port interne reste 3000
+    # quoi qu'il arrive, seul le port hote est configurable.
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+
+    ports:
+      - "${APP_PORT:-3000}:3000"
+
+    # Durcissement : le conteneur n'ecrit nulle part, ne gagne aucun privilege
+    # et ne conserve aucune capability.
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+    # Garde-fous pour que le conteneur ne puisse pas saturer la machine.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+
+    # Sans rotation, les logs d'un service en restart: unless-stopped peuvent
+    # remplir le disque.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
