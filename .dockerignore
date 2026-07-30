@@ -1,0 +1,22 @@
+# ---------------------------------------------------------------------------
+# Liste blanche : tout est exclu du contexte de build par defaut, seul ce qui
+# est necessaire au build entre. Un secret ou un artefact local ne peut donc
+# pas fuiter dans une image par oubli (.env, cles, node_modules de l'hote).
+#
+# Si vous ajoutez un fichier necessaire au build, ajoutez-le ici ET dans le
+# COPY correspondant du Dockerfile.
+# ---------------------------------------------------------------------------
+*
+
+!package.json
+!package-lock.json
+!tsconfig.json
+!src
+
+# Necessaires a la cible "verify" (lint + tests)
+!eslint.config.mjs
+!test
+
+# landing-page/ n'est volontairement pas inclus : elle n'est pas encore servie
+# par Express. A ajouter ici le jour ou app.ts la sert en statique.
+
