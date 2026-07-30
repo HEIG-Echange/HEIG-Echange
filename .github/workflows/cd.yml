@@ -41,22 +41,21 @@ jobs:
         run: docker build --target verify .
 
 
+  # Note : un job qui appelle un workflow reutilisable (uses:) n'accepte que
+  # with / secrets / needs / if / permissions / concurrency. Pas de env: ni de
+  # steps:. Les secrets sont transmis par "secrets: inherit" (les secrets du
+  # repository + ceux de l'environnement cible declare dans deploy.yml).
+  #
+  # deploy_path n'est qu'un defaut de repli : si le secret d'environnement
+  # DEPLOY_PATH est defini (recommande, une valeur par environnement), il gagne.
   staging:
     needs: verify
     if: github.event_name == 'push' || inputs.environment == 'staging'
     uses: ./.github/workflows/deploy.yml
     with:
       environment: staging
-      # deploy_path: /home/heigdeployloy/heig/staging-pdg
-      deploy_path: ${{ DEPLOY_PATH }}
+      deploy_path: /home/heigdeploy/heig/staging-pdg
     secrets: inherit
-    env:
-      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
-      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
-      DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
-      DEPLOY_SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
 
   production:
     needs: verify
@@ -64,16 +63,8 @@ jobs:
     uses: ./.github/workflows/deploy.yml
     with:
       environment: production
-      # deploy_path: /home/heigdeploy/heig/prod-pdg
-      deploy_path: ${{ DEPLOY_PATH }}
+      deploy_path: /home/heigdeploy/heig/prod-pdg
     secrets: inherit
-    env:
-      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
-      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
-      DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
-      DEPLOY_SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
 
 
   # 1rst version of deployment

@@ -2,19 +2,19 @@
 # Deploiement sur une machine distante via SSH.
 #
 # Workflow reutilisable : appele par cd.yml une fois par environnement. Toute
-# la configuration de connexion vient des variables et secrets de
-# l'environnement GitHub cible, donc staging et production peuvent viser des
-# machines, des ports et des utilisateurs differents sans dupliquer ce fichier.
+# la configuration de connexion vient des secrets (repository + environnement),
+# transmis par "secrets: inherit". Le secret d'environnement l'emporte sur le
+# secret de repository de meme nom, donc staging et production peuvent differer.
 #
-#   Variables (Settings > Environments > Variables)
-#     DEPLOY_HOST   nom d'hote ou IP de la machine            (requis)
-#     DEPLOY_USER   utilisateur SSH, membre du groupe docker  (requis)
-#     DEPLOY_PORT   port SSH                                  (defaut 22)
-#     DEPLOY_PATH   dossier de deploiement                    (defaut: entree du workflow)
+#   Secrets de repository (partages, meme machine)
+#     DEPLOY_HOST             nom d'hote ou IP de la machine           (requis)
+#     DEPLOY_USER             utilisateur SSH, membre du groupe docker (requis)
+#     DEPLOY_PORT             port SSH                                 (defaut 22)
+#     DEPLOY_SSH_PRIVATE_KEY  cle privee sans passphrase               (requis)
+#     DEPLOY_SSH_KNOWN_HOSTS  cle publique de l'hote                   (requis)
 #
-#   Secrets (Settings > Environments > Secrets)
-#     DEPLOY_SSH_PRIVATE_KEY  cle privee sans passphrase      (requis)
-#     DEPLOY_SSH_KNOWN_HOSTS  cle publique de l'hote          (requis)
+#   Secret d'environnement (une valeur par environnement)
+#     DEPLOY_PATH   dossier de deploiement   (defaut: entree deploy_path du workflow)
 #
 # Voir docs/deploiement.md pour la preparation de la machine.
 # ---------------------------------------------------------------------------
@@ -48,12 +48,6 @@ jobs:
       group: deploy-${{ inputs.environment }}
       cancel-in-progress: false
 
-    # env:
-    #   DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
-    #   DEPLOY_USER: ${{ vars.DEPLOY_USER }}
-    #   DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
-    #   DEPLOY_PATH: ${{ vars.DEPLOY_PATH || inputs.deploy_path }}
-    #   DEPLOY_ENV: ${{ inputs.environment }}
     env:
       DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
       DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
