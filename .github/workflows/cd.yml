@@ -30,14 +30,6 @@ concurrency:
   group: cd-main
 
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy Code
-        env:
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
-
-jobs:
   # Le deploiement construit l'image sur la machine cible : on revalide donc le
   # commit ici avant de toucher a une machine, plutot que de faire confiance a
   # un run de CI voisin.
