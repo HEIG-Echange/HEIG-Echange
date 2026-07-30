@@ -38,7 +38,7 @@ services:
 
     # Durcissement : le conteneur n'ecrit nulle part, ne gagne aucun privilege
     # et ne conserve aucune capability.
-    read_only: true
+    # read_only: true
     tmpfs:
       - /tmp
     cap_drop:

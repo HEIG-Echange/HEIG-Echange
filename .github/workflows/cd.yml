@@ -1,3 +1,13 @@
+# ---------------------------------------------------------------------------
+# CD — deploiement sur les machines distantes.
+#
+#   merge sur main            -> staging automatiquement
+#   declenchement manuel      -> staging ou production
+#
+# La production n'est pas automatique : staging sert de filtre, et
+# l'environnement "production" peut en plus exiger une approbation
+# (Settings > Environments > production > Required reviewers).
+# ---------------------------------------------------------------------------
 name: CD
 
 on:
@@ -6,11 +16,53 @@ on:
     paths-ignore:
       - "docs/**"
       - "**.md"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environnement a deployer"
+        type: choice
+        options:
+          - staging
+          - production
+        default: staging
 
 concurrency:
   group: cd-main
 
 jobs:
+  # Le deploiement construit l'image sur la machine cible : on revalide donc le
+  # commit ici avant de toucher a une machine, plutot que de faire confiance a
+  # un run de CI voisin.
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Lint et tests dans l'image
+        run: docker build --target verify .
+
+
+  staging:
+    needs: verify
+    if: github.event_name == 'push' || inputs.environment == 'staging'
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: staging
+      # deploy_path: /home/heigdeploy/heig/staging-pdg
+      deploy_path: ${{ secrets.DEPLOY_PATH }}
+    secrets: inherit
+
+  production:
+    needs: verify
+    if: github.event_name == 'workflow_dispatch' && inputs.environment == 'production'
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: production
+      # deploy_path: /home/heigdeploy/heig/prod-pdg
+      deploy_path: ${{ secrets.DEPLOY_PATH }}
+    secrets: inherit
+
+
+  # 1rst version of deployment
   deploy:
     runs-on: ubuntu-latest
     permissions:

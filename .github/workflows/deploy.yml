@@ -1,0 +1,152 @@
+# ---------------------------------------------------------------------------
+# Deploiement sur une machine distante via SSH.
+#
+# Workflow reutilisable : appele par cd.yml une fois par environnement. Toute
+# la configuration de connexion vient des variables et secrets de
+# l'environnement GitHub cible, donc staging et production peuvent viser des
+# machines, des ports et des utilisateurs differents sans dupliquer ce fichier.
+#
+#   Variables (Settings > Environments > Variables)
+#     DEPLOY_HOST   nom d'hote ou IP de la machine            (requis)
+#     DEPLOY_USER   utilisateur SSH, membre du groupe docker  (requis)
+#     DEPLOY_PORT   port SSH                                  (defaut 22)
+#     DEPLOY_PATH   dossier de deploiement                    (defaut: entree du workflow)
+#
+#   Secrets (Settings > Environments > Secrets)
+#     DEPLOY_SSH_PRIVATE_KEY  cle privee sans passphrase      (requis)
+#     DEPLOY_SSH_KNOWN_HOSTS  cle publique de l'hote          (requis)
+#
+# Voir docs/deploiement.md pour la preparation de la machine.
+# ---------------------------------------------------------------------------
+name: Deploiement
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: "Environnement cible (staging ou production)"
+        required: true
+        type: string
+      deploy_path:
+        description: "Dossier de deploiement par defaut, si la variable DEPLOY_PATH n'est pas definie"
+        required: true
+        type: string
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    timeout-minutes: 20
+    permissions:
+      contents: read
+
+    # Deux deploiements du meme environnement ne doivent pas se croiser sur la
+    # machine. En revanche staging et production restent independants, et on ne
+    # coupe pas un deploiement en cours : l'annuler laisserait la machine dans
+    # un etat intermediaire.
+    concurrency:
+      group: deploy-${{ inputs.environment }}
+      cancel-in-progress: false
+
+    # env:
+    #   DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+    #   DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+    #   DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
+    #   DEPLOY_PATH: ${{ vars.DEPLOY_PATH || inputs.deploy_path }}
+    #   DEPLOY_ENV: ${{ inputs.environment }}
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || inputs.deploy_path }}
+      DEPLOY_ENV: ${{ inputs.environment }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Controle de la configuration
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+        run: |
+          erreurs=0
+          manque() { echo "::error::configuration manquante pour l'environnement $DEPLOY_ENV : $1"; erreurs=1; }
+
+          [ -n "$DEPLOY_HOST" ]      || manque "variable DEPLOY_HOST"
+          [ -n "$DEPLOY_USER" ]      || manque "variable DEPLOY_USER"
+          [ -n "$DEPLOY_PATH" ]      || manque "variable DEPLOY_PATH"
+          [ -n "$SSH_PRIVATE_KEY" ]  || manque "secret DEPLOY_SSH_PRIVATE_KEY"
+          [ -n "$SSH_KNOWN_HOSTS" ]  || manque "secret DEPLOY_SSH_KNOWN_HOSTS"
+
+          case "$DEPLOY_PORT" in
+            ''|*[!0-9]*) echo "::error::DEPLOY_PORT doit etre un nombre, recu '$DEPLOY_PORT'"; erreurs=1 ;;
+          esac
+
+          # DEPLOY_PATH est interpole dans la commande SSH plus bas : on le
+          # restreint a un chemin absolu sans metacaracteres de shell.
+          case "$DEPLOY_PATH" in
+            /*) ;;
+            *) echo "::error::DEPLOY_PATH doit etre un chemin absolu, recu '$DEPLOY_PATH'"; erreurs=1 ;;
+          esac
+          if printf '%s' "$DEPLOY_PATH" | grep -q '[^A-Za-z0-9._/-]'; then
+            echo "::error::DEPLOY_PATH contient des caracteres non autorises"
+            erreurs=1
+          fi
+
+          [ "$erreurs" -eq 0 ] || exit 1
+          echo "Cible : $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PORT -> $DEPLOY_PATH"
+
+      - name: Configuration de la cle SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+          # L'hote est verifie via known_hosts. Pas de StrictHostKeyChecking=no :
+          # ca accepterait n'importe quelle machine se presentant a cette adresse.
+          cat > ~/.ssh/config <<CONFIG
+          Host deploy-target
+            HostName $DEPLOY_HOST
+            User $DEPLOY_USER
+            Port $DEPLOY_PORT
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+            BatchMode yes
+            ConnectTimeout 15
+            ServerAliveInterval 30
+          CONFIG
+          chmod 600 ~/.ssh/config
+
+      - name: Archive des sources du commit
+        run: |
+          # git archive garantit qu'on envoie exactement l'arbre du commit
+          # teste, sans fichier local parasite ni historique git.
+          git archive --format=tar.gz -o "$RUNNER_TEMP/source.tar.gz" HEAD
+          ls -lh "$RUNNER_TEMP/source.tar.gz"
+
+      - name: Envoi de l'archive
+        run: |
+          scp "$RUNNER_TEMP/source.tar.gz" \
+            "deploy-target:/tmp/heig-echange-$GITHUB_SHA.tar.gz"
+
+      - name: Build et demarrage des services
+        run: |
+          APP_VERSION="$(jq -r '.version' package.json)"
+          ssh deploy-target \
+            "DEPLOY_PATH='$DEPLOY_PATH' \
+             DEPLOY_ENV='$DEPLOY_ENV' \
+             RELEASE_SHA='$GITHUB_SHA' \
+             ARCHIVE='/tmp/heig-echange-$GITHUB_SHA.tar.gz' \
+             APP_VERSION='$APP_VERSION' \
+             bash -s" < scripts/deploy-remote.sh
+
+      - name: Nettoyage des identifiants
+        if: always()
+        run: rm -rf ~/.ssh
+
