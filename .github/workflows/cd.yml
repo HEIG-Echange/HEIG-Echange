@@ -30,6 +30,14 @@ concurrency:
   group: cd-main
 
 jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy Code
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+
+jobs:
   # Le deploiement construit l'image sur la machine cible : on revalide donc le
   # commit ici avant de toucher a une machine, plutot que de faire confiance a
   # un run de CI voisin.
@@ -47,9 +55,16 @@ jobs:
     uses: ./.github/workflows/deploy.yml
     with:
       environment: staging
-      # deploy_path: /home/heigdeploy/heig/staging-pdg
-      deploy_path: ${{ secrets.DEPLOY_PATH }}
+      # deploy_path: /home/heigdeployloy/heig/staging-pdg
+      deploy_path: ${{ DEPLOY_PATH }}
     secrets: inherit
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+      DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+      DEPLOY_SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
 
   production:
     needs: verify
@@ -58,8 +73,15 @@ jobs:
     with:
       environment: production
       # deploy_path: /home/heigdeploy/heig/prod-pdg
-      deploy_path: ${{ secrets.DEPLOY_PATH }}
+      deploy_path: ${{ DEPLOY_PATH }}
     secrets: inherit
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+      DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+      DEPLOY_SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
 
 
   # 1rst version of deployment
