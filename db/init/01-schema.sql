@@ -164,17 +164,16 @@ CREATE TABLE reports (
 -- moderation_logs — historique des actions de moderation (req 9)
 --
 -- "acces historique des modifications" : chaque action admin (blocage,
--- suppression, edition) laisse une trace. details (JSON) peut contenir un
+-- suppression) laisse une trace. details (JSON) peut contenir un
 -- avant/apres. On conserve la ligne meme si l'admin est supprime (actor_id
 -- passe a NULL) pour ne pas perdre l'historique.
 -- ---------------------------------------------------------------------------
 CREATE TABLE moderation_logs (
   id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   actor_id    BIGINT UNSIGNED     NULL,
-  action      VARCHAR(60)     NOT NULL,   -- ex: block_user, delete_listing, update_listing
-  target_type ENUM('user','listing','message','category','report') NOT NULL,
+  action      VARCHAR(120)     NOT NULL,   -- ex: block_user, delete_listing, update_listing
+  target_type ENUM('user','listing') NOT NULL,
   target_id   BIGINT UNSIGNED NOT NULL,
-  details     JSON                NULL DEFAULT NULL,
   created_at  TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   KEY idx_modlog_target (target_type, target_id),
