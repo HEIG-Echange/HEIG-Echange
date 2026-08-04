@@ -6,8 +6,6 @@
 #
 # Pour le developpement avec rechargement a chaud, voir compose.dev.yaml.
 # ---------------------------------------------------------------------------
-name: heig-echange
-
 services:
   app:
     build:
