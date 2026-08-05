@@ -38,6 +38,7 @@ CREATE TABLE users (
   email          VARCHAR(255)    NOT NULL,
   display_name   VARCHAR(120)    NOT NULL,
   avatar_url     VARCHAR(512)        NULL DEFAULT NULL,
+  password_hash  VARCHAR(255)    NOT NULL,                    -- hash bcrypt, jamais en clair
   role           ENUM('user','admin') NOT NULL DEFAULT 'user',
   is_blocked     BOOLEAN         NOT NULL DEFAULT FALSE,     -- req 9 : blocage
   blocked_reason VARCHAR(255)        NULL DEFAULT NULL,

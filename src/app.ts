@@ -1,5 +1,7 @@
 import session from "express-session";
 import express from "express";
+import { authRouter } from "./routes/auth";
+import { listingsRouter } from "./routes/listings";
 
 export const app = express();
 
@@ -12,15 +14,14 @@ app.use(
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: true,
     },
   })
 );
 
-app.get("/", (_req, res) => {
-  res.send("<h1>Hello World 2</h1>");
-});
 
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
+
+app.use("/auth", authRouter);

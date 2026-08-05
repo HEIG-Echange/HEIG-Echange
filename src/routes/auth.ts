@@ -1,28 +1,37 @@
 import { Router } from "express";
+import bcrypt from "bcryptjs";
 import type { RowDataPacket, ResultSetHeader } from "mysql2";
 import { pool } from "../db";
 import { isAllowedEmailDomain } from "../auth/validateEmail";
 
 export const authRouter = Router();
 
+const MIN_PASSWORD_LENGTH = 8;
+const SALT_ROUNDS = 10;
+
 interface UserRow extends RowDataPacket {
   id: number;
   email: string;
   display_name: string;
+  password_hash: string;
   role: "user" | "admin";
   is_blocked: number | boolean;
 }
 
-// POST /auth/register — cree un compte 
+// POST /auth/register — cree un compte
 authRouter.post("/register", async (req, res) => {
-  const { email, displayName } = req.body ?? {};
+  const { email, displayName, password } = req.body ?? {};
 
   if (
     typeof email !== "string" ||
     typeof displayName !== "string" ||
-    !displayName.trim()
+    !displayName.trim() ||
+    typeof password !== "string" ||
+    password.length < MIN_PASSWORD_LENGTH
   ) {
-    res.status(400).json({ error: "email et displayName sont requis" });
+    res.status(400).json({
+      error: `email, displayName et password (min. ${MIN_PASSWORD_LENGTH} caracteres) sont requis`,
+    });
     return;
   }
 
@@ -43,9 +52,11 @@ authRouter.post("/register", async (req, res) => {
     return;
   }
 
+  const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+
   const [result] = await pool.query<ResultSetHeader>(
-    "INSERT INTO users (email, display_name) VALUES (?, ?)",
-    [email, displayName]
+    "INSERT INTO users (email, display_name, password_hash) VALUES (?, ?, ?)",
+    [email, displayName, passwordHash]
   );
 
   req.session.userId = result.insertId;
@@ -58,13 +69,12 @@ authRouter.post("/register", async (req, res) => {
   });
 });
 
-// POST /auth/login 
-//TODO: ajouter un mot de passe pour le login
+// POST /auth/login
 authRouter.post("/login", async (req, res) => {
-  const { email } = req.body ?? {};
+  const { email, password } = req.body ?? {};
 
-  if (typeof email !== "string") {
-    res.status(400).json({ error: "email est requis" });
+  if (typeof email !== "string" || typeof password !== "string") {
+    res.status(400).json({ error: "email et password sont requis" });
     return;
   }
 
@@ -76,7 +86,7 @@ authRouter.post("/login", async (req, res) => {
   }
 
   const [rows] = await pool.query<UserRow[]>(
-    "SELECT id, email, display_name, role, is_blocked FROM users WHERE email = ? AND deleted_at IS NULL",
+    "SELECT id, email, display_name, password_hash, role, is_blocked FROM users WHERE email = ? AND deleted_at IS NULL",
     [email]
   );
 
@@ -86,6 +96,13 @@ authRouter.post("/login", async (req, res) => {
     res
       .status(404)
       .json({ error: "aucun compte pour cet email, inscris-toi d'abord" });
+    return;
+  }
+
+  const passwordMatches = await bcrypt.compare(password, user.password_hash);
+
+  if (!passwordMatches) {
+    res.status(401).json({ error: "mot de passe incorrect" });
     return;
   }
 
