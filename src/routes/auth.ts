@@ -13,7 +13,7 @@ interface UserRow extends RowDataPacket {
   is_blocked: number | boolean;
 }
 
-// POST /auth/register — cree un compte (req 0 : domaine verifie).
+// POST /auth/register — cree un compte 
 authRouter.post("/register", async (req, res) => {
   const { email, displayName } = req.body ?? {};
 
@@ -58,8 +58,8 @@ authRouter.post("/register", async (req, res) => {
   });
 });
 
-// POST /auth/login — pas de mot de passe : on verifie juste le domaine et
-// qu'un compte existe deja (cree via /auth/register).
+// POST /auth/login 
+//TODO: ajouter un mot de passe pour le login
 authRouter.post("/login", async (req, res) => {
   const { email } = req.body ?? {};
 
@@ -90,7 +90,7 @@ authRouter.post("/login", async (req, res) => {
   }
 
   if (user.is_blocked) {
-    res.status(403).json({ error: "ce compte est bloque" });
+    res.status(403).json({ error: "malheuresement ce compte est bloque" });
     return;
   }
 
@@ -119,7 +119,7 @@ authRouter.post("/logout", (req, res) => {
 // GET /auth/me — renvoie le compte lie a la session en cours, si connecte.
 authRouter.get("/me", async (req, res) => {
   if (!req.session.userId) {
-    res.status(401).json({ error: "non connecte" });
+    res.status(401).json({ error: "vous n'etes pas connecte" });
     return;
   }
 
@@ -131,7 +131,7 @@ authRouter.get("/me", async (req, res) => {
   const user = rows[0];
 
   if (!user || user.is_blocked) {
-    res.status(401).json({ error: "non connecte" });
+    res.status(401).json({ error: "vous n'etes pas connecte" });
     return;
   }
 

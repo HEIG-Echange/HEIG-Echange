@@ -1,6 +1,5 @@
-import express from "express";
 import session from "express-session";
-import { authRouter } from "./routes/auth";
+import express from "express";
 
 export const app = express();
 
@@ -25,5 +24,3 @@ app.get("/", (_req, res) => {
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
-
-app.use("/auth", authRouter);

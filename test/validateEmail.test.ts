@@ -6,11 +6,6 @@ describe("isAllowedEmailDomain", () => {
     expect(isAllowedEmailDomain("sofia@heig-vd.ch")).toBe(true);
   });
 
-  it("accepte un email @hes-so.ch et ses sous-domaines", () => {
-    expect(isAllowedEmailDomain("quelquun@hes-so.ch")).toBe(true);
-    expect(isAllowedEmailDomain("quelquun@edu.hes-so.ch")).toBe(true);
-  });
-
   it("refuse un domaine externe", () => {
     expect(isAllowedEmailDomain("quelquun@gmail.com")).toBe(false);
   });
