@@ -1,0 +1,44 @@
+User stories – HEIG·Échange
+
+Lucas – Étudiant qui cherche un objet
+En tant que Lucas Morel, étudiant à la HEIG-VD, je veux consulter les objets disponibles et accéder au détail d’une annonce afin de trouver un objet qui m’intéresse et voir comment le récupérer.
+
+Critères d’acceptation :
+- Lucas peut voir la liste des objets sur la page d’accueil.
+- Lucas peut cliquer sur une annonce pour ouvrir sa fiche détaillée.
+- Lucas peut contacter le donneur via Teams ou proposer un rendez-vous.
+
+Sarah – Étudiante qui propose un objet
+En tant que Sarah Dupont, étudiante à la HEIG-VD, je veux publier un objet depuis mon profil afin de le mettre à disposition d’autres étudiants.
+
+Critères d’acceptation :
+- Sarah voit un bouton “Mettre à disposition” dans son profil.
+- Sarah peut saisir le titre, la description, la catégorie, l’état et le lieu de récupération.
+- Sarah peut ajouter une ou plusieurs photos.
+- Après validation, l’objet apparaît sur son profil et sur la page d’accueil.
+
+Mehdi – Étudiant qui veut prioriser certains contacts
+En tant que Mehdi Benali, étudiant à la HEIG-VD, je veux créer des groupes prioritaires personnalisés lors de la publication d’un objet afin de proposer d’abord cet objet à certaines personnes avant de l’ouvrir à toute la communauté.
+
+Critères d’acceptation :
+- Mehdi peut créer un groupe avec un nom personnalisé.
+- Mehdi peut ajouter des étudiants dans un groupe.
+- Lorsqu’il publie un objet, Mehdi peut le réserver temporairement à un ou plusieurs groupes prioritaires.
+- Après le délai défini, l’annonce devient visible à tous les étudiants.
+
+Mme Martin – Modératrice qui consulte l’historique
+En tant que Mme Martin, modératrice de la plateforme, je veux consulter l’historique des publications afin de savoir sije dois bloquer un utilisateur.
+
+Critères d’acceptation :
+- Claire peut voir la liste des publications d'un utilisateur, fermées ou ouvertes.
+- Pour chaque entrée, Claire voit si la publication a été modifiées.
+- Claire peut voir les différentes modifications d'une publication.
+
+M Rey – Modérateur qui supprime une publication offensante
+En tant que M Rey, modérateur de la plateforme, je veux supprimer une publication offensante ou non conforme afin de protéger les utilisateurs et de faire respecter les règles de la plateforme.
+
+Critères d’acceptation :
+- Julien peut ouvrir une publication signalée.
+- Julien peut supprimer une publication si son contenu est offensant, insultant ou inapproprié.
+- La suppression est enregistrée dans l’historique de modération.
+- Julien peut associer un motif de suppression à son action.
