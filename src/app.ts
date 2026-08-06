@@ -25,3 +25,4 @@ app.get("/health", (_req, res) => {
 });
 
 app.use("/auth", authRouter);
+app.use("/listings", listingsRouter);

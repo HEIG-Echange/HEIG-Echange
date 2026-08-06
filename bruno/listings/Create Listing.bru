@@ -1,0 +1,33 @@
+meta {
+  name: Create Listing
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/listings
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "categoryId": {{categoryId}},
+    "title": "{{title}}",
+    "description": "{{description}}",
+    "itemCondition": "{{itemCondition}}"
+  }
+}
+
+vars:pre-request {
+  categoryId: 1
+  title: Calculatrice HP Prime G2
+  description: Tres bon etat, peu servi
+  itemCondition: tres_bon
+}
+
+script:post-response {
+  if (res.body && res.body.id) {
+    bru.setVar("listingId", res.body.id);
+  }
+}
