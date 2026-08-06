@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Échange — Connexion</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          brand: { DEFAULT: '#c8102e', dark: '#a30d25', light: '#f9e4e7' },
+          appbg: '#f5f4f0', appfg: '#1a1816',
+          secondarybg: '#f0ede8', mutedbg: '#e8e5e0', mutedfg: '#7a7670',
+        },
+        fontFamily: { sans: ['"Plus Jakarta Sans"', '-apple-system', 'sans-serif'] },
+      },
+    },
+  }
+</script>
+<link rel="stylesheet" href="css/app.css" />
+<style>body { font-family: 'Plus Jakarta Sans', sans-serif; }</style>
+</head>
+<body class="bg-mutedbg text-appfg antialiased">
+
+<div class="app-shell justify-center">
+  <div class="px-6 py-10">
+    <div class="text-center mb-8">
+      <p class="text-xs text-mutedfg font-semibold">HEIG-VD</p>
+      <h1 class="text-3xl font-extrabold text-brand -mt-0.5">Échange</h1>
+    </div>
+
+    <form id="login-form" class="space-y-4">
+      <div id="error-box" class="hidden bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-3 py-2"></div>
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-wide mb-1.5">Email HEIG-VD / HES-SO</label>
+        <input id="email-input" type="email" required placeholder="prenom.nom@heig-vd.ch"
+               class="w-full bg-white border border-appfg/15 rounded-xl px-3.5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30" />
+      </div>
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-wide mb-1.5">Mot de passe</label>
+        <input id="password-input" type="password" required
+               class="w-full bg-white border border-appfg/15 rounded-xl px-3.5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30" />
+      </div>
+      <button type="submit" class="w-full bg-brand hover:bg-brand-dark text-white font-bold rounded-xl py-3.5 transition-colors">
+        Se connecter
+      </button>
+    </form>
+
+    <p class="text-center text-sm text-mutedfg mt-6">
+      Pas encore de compte ? <a href="register.html" class="text-brand font-bold">S'inscrire</a>
+    </p>
+  </div>
+</div>
+
+<script type="module" src="js/pages/login.js"></script>
+</body>
+</html>

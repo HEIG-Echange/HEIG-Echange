@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Échange — Mettre à disposition</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          brand: { DEFAULT: '#c8102e', dark: '#a30d25', light: '#f9e4e7' },
+          appbg: '#f5f4f0', appfg: '#1a1816',
+          secondarybg: '#f0ede8', mutedbg: '#e8e5e0', mutedfg: '#7a7670',
+        },
+        fontFamily: { sans: ['"Plus Jakarta Sans"', '-apple-system', 'sans-serif'] },
+      },
+    },
+  }
+</script>
+<link rel="stylesheet" href="css/app.css" />
+<style>body { font-family: 'Plus Jakarta Sans', sans-serif; }</style>
+</head>
+<body class="bg-mutedbg text-appfg antialiased">
+
+<div class="app-shell">
+  <!-- Vue formulaire -->
+  <div id="form-view">
+    <header class="flex-shrink-0 flex items-center gap-3 px-4 py-4 bg-white border-b border-appfg/10">
+      <button type="button" onclick="history.back()" class="w-9 h-9 rounded-full bg-secondarybg flex items-center justify-center">←</button>
+      <h1 class="text-lg font-extrabold">Mettre à disposition</h1>
+    </header>
+
+    <main class="flex-1 overflow-y-auto px-4 py-5 space-y-5 pb-28">
+      <div id="error-box" class="hidden bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-3 py-2"></div>
+
+      <div>
+        <label for="photos-input" class="block border-2 border-dashed border-appfg/20 rounded-2xl px-4 py-8 text-center cursor-pointer bg-white hover:border-brand/40 transition-colors">
+          <span class="block text-2xl mb-2">⬆️</span>
+          <span class="block font-bold text-sm">Ajouter des photos</span>
+          <span class="block text-xs text-mutedfg mt-1">Appuyez pour ouvrir votre galerie</span>
+        </label>
+        <input id="photos-input" type="file" accept="image/*" multiple class="hidden" />
+        <div id="photo-previews" class="flex gap-2 mt-3 flex-wrap"></div>
+        <p class="text-[11px] text-mutedfg mt-2">L'envoi de photos vers le serveur arrive bientôt — pour l'instant, seul un aperçu local est disponible.</p>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-wide mb-1.5">Titre *</label>
+        <input id="title-input" type="text" placeholder="Ex: Calculatrice HP Prime G2"
+               class="w-full bg-white border border-appfg/15 rounded-xl px-3.5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30" />
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-wide mb-1.5">Description</label>
+        <textarea id="description-input" rows="4" placeholder="Décrivez l'objet, son état, ce qui est inclus…"
+                  class="w-full bg-white border border-appfg/15 rounded-xl px-3.5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30"></textarea>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wide mb-1.5">Catégorie</label>
+          <select id="category-select" class="w-full bg-white border border-appfg/15 rounded-xl px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30"></select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wide mb-1.5">État</label>
+          <select id="condition-select" class="w-full bg-white border border-appfg/15 rounded-xl px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30"></select>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-wide mb-1.5">Lieu</label>
+        <input type="text" value="HEIG-VD, Yverdon" disabled
+               class="w-full bg-mutedbg border border-appfg/10 rounded-xl px-3.5 py-3 text-sm text-mutedfg" />
+        <p class="text-[11px] text-mutedfg mt-1">Bientôt configurable — pour l'instant fixé au campus HEIG-VD.</p>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-wide mb-1.5">Visibilité</label>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="border border-appfg/10 rounded-xl px-3 py-4 text-center bg-mutedbg text-mutedfg cursor-not-allowed" title="Bientôt disponible — nécessite les groupes d'amis prioritaires">
+            <span class="block text-lg">☆</span>
+            <span class="block text-xs font-bold mt-1">Prioritaires d'abord</span>
+            <span class="block text-[10px] mt-0.5">Bientôt disponible</span>
+          </div>
+          <div class="border-2 border-brand rounded-xl px-3 py-4 text-center bg-brand-light text-brand">
+            <span class="block text-lg">👥</span>
+            <span class="block text-xs font-bold mt-1">Toute la communauté</span>
+            <span class="block text-[10px] mt-0.5">Visible immédiatement</span>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <div class="flex-shrink-0 p-4 bg-white border-t border-appfg/10 sticky bottom-0">
+      <button id="submit-btn" type="button" class="w-full bg-brand hover:bg-brand-dark text-white font-bold rounded-xl py-3.5 transition-colors disabled:opacity-50">
+        Publier l'annonce
+      </button>
+    </div>
+  </div>
+
+  <!-- Vue succes -->
+  <div id="success-view" class="hidden flex-1 flex flex-col">
+    <header class="flex-shrink-0 flex items-center gap-3 px-4 py-4 bg-white border-b border-appfg/10">
+      <a href="profile.html" class="w-9 h-9 rounded-full bg-secondarybg flex items-center justify-center">←</a>
+      <h1 class="text-lg font-extrabold">Annonce publiée</h1>
+    </header>
+    <main class="flex-1 flex flex-col items-center justify-center text-center px-8">
+      <div class="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center text-4xl mb-6">✓</div>
+      <h2 class="text-xl font-extrabold">C'est en ligne !</h2>
+      <p class="text-sm text-mutedfg mt-3">Votre annonce est visible par la communauté HEIG-VD.</p>
+      <a href="index.html" class="mt-8 w-full bg-brand hover:bg-brand-dark text-white font-bold rounded-xl py-3.5 transition-colors">
+        Retour à l'accueil
+      </a>
+    </main>
+  </div>
+</div>
+
+<script type="module" src="js/pages/add-listing.js"></script>
+</body>
+</html>

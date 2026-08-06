@@ -16,6 +16,10 @@ services:
         REVISION: ${REVISION:-local}
     image: heig-echange:${VERSION:-local}
 
+    depends_on:
+      db:
+        condition: service_healthy
+
     # Reaper de PID 1 : evite l'accumulation de processus zombies.
     init: true
     restart: unless-stopped
@@ -58,4 +62,38 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+  db:
+    image: mariadb:11.4
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      MARIADB_DATABASE: ${MARIADB_DATABASE:-heig_echange}
+      MARIADB_USER: ${MARIADB_USER:-heig}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:?MARIADB_PASSWORD est requis (definir dans .env)}
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?MARIADB_ROOT_PASSWORD est requis (definir dans .env)}
+    volumes:
+      - db-data:/var/lib/mysql
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  phpmyadmin:
+    image: phpmyadmin:5
+    profiles: ["tools"]
+    restart: unless-stopped
+    environment:
+      PMA_HOST: db
+    ports:
+      - "127.0.0.1:${PHPMYADMIN_PORT:-8082}:80"
+    depends_on:
+      - db
+
+volumes:
+  db-data:
 

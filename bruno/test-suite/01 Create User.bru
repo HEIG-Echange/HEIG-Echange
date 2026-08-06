@@ -1,0 +1,38 @@
+meta {
+  name: 01 Create User
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/auth/register
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "email": "{{testEmail}}",
+    "displayName": "{{testDisplayName}}",
+    "password": "{{testPassword}}"
+  }
+}
+
+script:pre-request {
+  // Email unique a chaque run, pour ne pas se prendre un 409 en relancant
+  // la suite plusieurs fois.
+  bru.setVar("testEmail", "test." + Date.now() + "@heig-vd.ch");
+  bru.setVar("testDisplayName", "Test User");
+  bru.setVar("testPassword", "motdepasse123");
+}
+
+tests {
+  test("renvoie 201", function () {
+    expect(res.getStatus()).to.equal(201);
+  });
+
+  test("renvoie le compte cree avec le bon email", function () {
+    expect(res.getBody().email).to.equal(bru.getVar("testEmail"));
+    expect(res.getBody().role).to.equal("user");
+  });
+}
