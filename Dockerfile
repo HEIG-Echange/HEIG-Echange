@@ -57,6 +57,7 @@ RUN --mount=type=cache,target=/root/.npm,sharing=locked \
 
 COPY tsconfig.json ./
 COPY src ./src
+COPY public ./public
 RUN npm run build
 
 # ---------------------------------------------------------------------------
@@ -112,6 +113,7 @@ ENV PORT=3000
 
 COPY --from=deps --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/dist ./dist
+COPY --from=build --chown=node:node /app/public ./public
 COPY --chown=node:node package.json ./
 
 # L'utilisateur node (uid 1000) est fourni par l'image officielle.
