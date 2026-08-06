@@ -12,6 +12,7 @@
 !package-lock.json
 !tsconfig.json
 !src
+!public
 
 # Necessaires a la cible "verify" (lint + tests)
 !eslint.config.mjs
