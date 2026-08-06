@@ -19,5 +19,5 @@
 !test
 
 # landing-page/ n'est volontairement pas inclus : elle n'est pas encore servie
-# par Express. A ajouter ici le jour ou app.ts la sert en statique.
+# par Express (page marketing statique separee, cf. README).
 
