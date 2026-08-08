@@ -74,6 +74,13 @@ services:
       MARIADB_USER: ${MARIADB_USER:-heig}
       MARIADB_PASSWORD: ${MARIADB_PASSWORD:?MARIADB_PASSWORD est requis (definir dans .env)}
       MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?MARIADB_ROOT_PASSWORD est requis (definir dans .env)}
+    # ATTENTION : ces variables MARIADB_* ne sont lues par l'entrypoint MariaDB
+    # qu'a la toute premiere initialisation du volume "db-data" (quand il est
+    # vide). Sur un volume deja initialise, elles sont silencieusement
+    # ignorees : changer le mot de passe ou la base dans .env n'a alors aucun
+    # effet tant que le volume n'est pas recree. Ce volume est nomme par
+    # projet Compose (prefixe COMPOSE_PROJECT_NAME) : voir .env.example pour
+    # pourquoi ce nom doit etre unique par instance sur une meme machine.
     volumes:
       - db-data:/var/lib/mysql
       - ./db/init:/docker-entrypoint-initdb.d:ro
@@ -89,11 +96,16 @@ services:
     restart: unless-stopped
     environment:
       PMA_HOST: db
+    # Bind configurable (voir .env.example) : 0.0.0.0 par defaut pour
+    # permettre l'administration depuis une autre machine du reseau.
     ports:
-      - "127.0.0.1:${PHPMYADMIN_PORT:-8082}:80"
+      - "${PHPMYADMIN_BIND_ADDRESS:-0.0.0.0}:${PHPMYADMIN_PORT:-8082}:80"
     depends_on:
       - db
 
+# Nomme(s) par Compose sous la forme <COMPOSE_PROJECT_NAME>_db-data : deux
+# instances avec le meme nom de projet (par defaut, le nom du dossier)
+# partagent ce volume au lieu d'en avoir chacune le leur. Voir .env.example.
 volumes:
   db-data:
 
