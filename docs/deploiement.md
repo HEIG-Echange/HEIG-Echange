@@ -141,6 +141,46 @@ labels OCI de l'image (`org.opencontainers.image.revision`) :
 docker image inspect heig-echange:production --format '{{json .Config.Labels}}'
 ```
 
+## Plusieurs instances sur une même machine (dev local)
+
+Le même principe que pour staging/prod (section précédente) s'applique à deux
+clones locaux du projet lancés en parallèle (ex. pour comparer deux branches).
+Dans le `.env` de **chaque** clone :
+
+```dotenv
+APP_PORT=3001                          # doit différer entre les instances
+PHPMYADMIN_PORT=8083                   # idem, si le profil "tools" est utilisé
+COMPOSE_PROJECT_NAME=heig-echange-a     # doit différer entre les instances
+```
+
+`COMPOSE_PROJECT_NAME` est le point le plus facile à oublier : sans lui,
+Compose dérive le nom de projet du nom du **dossier**. Deux clones portant le
+même nom de dossier (ce qui est le comportement par défaut de `git clone`)
+partagent alors le même nom de projet, donc le même volume `db-data` — la 2ᵉ
+instance réutilise la base de données de la 1ʳᵉ au lieu d'en créer une neuve.
+Symptôme typique : changer `MARIADB_USER`/`MARIADB_PASSWORD`/`MARIADB_DATABASE`
+dans le `.env` de la 2ᵉ instance n'a aucun effet, car MariaDB n'applique ces
+variables qu'à la toute première initialisation d'un volume vide. Voir les
+commentaires de `.env.example` et `compose.yaml` pour le détail.
+
+`DB_HOST`/`DB_PORT` n'ont en revanche pas besoin de changer : la base n'est
+jamais publiée sur la machine hôte (pas de section `ports` sur le service
+`db`), donc aucun conflit possible entre instances sur ce port.
+
+### Accès à phpMyAdmin depuis une autre machine
+
+Le service `phpmyadmin` (profil `tools`, à lancer avec
+`docker compose --profile tools up -d`) est publié sur `0.0.0.0` par défaut,
+donc joignable depuis une autre machine du réseau à
+`http://<ip-de-la-machine>:${PHPMYADMIN_PORT}`. C'est volontaire pour permettre
+l'administration à distance, mais phpMyAdmin n'est pas servi en HTTPS ici :
+ne l'exposer que sur un réseau de confiance (LAN privé, VPN), jamais
+directement sur Internet. Pour revenir à un accès local uniquement, définir
+`PHPMYADMIN_BIND_ADDRESS=127.0.0.1` dans le `.env` concerné.
+
+
+
+
 ## Déploiement manuel d'urgence
 
 Le script distant est utilisable à la main, sans pipeline, depuis une copie des
