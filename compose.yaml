@@ -48,13 +48,6 @@ services:
     security_opt:
       - no-new-privileges:true
 
-    # Garde-fous pour que le conteneur ne puisse pas saturer la machine.
-    deploy:
-      resources:
-        limits:
-          cpus: "1.0"
-          memory: 512M
-
     # Sans rotation, les logs d'un service en restart: unless-stopped peuvent
     # remplir le disque.
     logging:

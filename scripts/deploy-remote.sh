@@ -61,7 +61,11 @@ export REVISION="$RELEASE_SHA"
 export CREATED
 CREATED="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-echo "==> docker compose up --build -d (${DEPLOY_ENV})"
+echo "==> docker compose down (${DEPLOY_ENV})"
+docker compose down
+
+
+echo "==> docker compose up --profile tools --build -d (${DEPLOY_ENV})"
 # --wait fait echouer la commande si le healthcheck du conteneur ne passe pas :
 # un demarrage casse remonte en echec de pipeline au lieu de passer inapercu.
 if ! docker compose --profile tools up --build -d --remove-orphans --wait --wait-timeout 300; then
