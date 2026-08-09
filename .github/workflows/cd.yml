@@ -71,7 +71,7 @@ jobs:
     secrets: inherit
 
 
-  # 1rst version of deployment
+  # Deploys image to Github registry
   deploy:
     runs-on: ubuntu-latest
     permissions:
