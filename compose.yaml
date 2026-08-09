@@ -90,6 +90,9 @@ services:
     image: phpmyadmin:5
     profiles: ["tools"]
     restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
     environment:
       PMA_HOST: db
       # Bind address configurable (voir .env.example) : 0.0.0.0 pour
