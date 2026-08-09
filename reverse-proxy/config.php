@@ -14,13 +14,9 @@ declare(strict_types=1);
 // du serveur distant (Raspberry PI ou VPS)
 const REMOTE_SERVER = 'http://147.93.54.78:18080';
 
-/**
- * Timeout de connexion en secondes.
- */
+// Timeout de connexion en secondes.
 const CONNECT_TIMEOUT = 10;
 
-/**
- * Timeout total de la requête en secondes.
- */
+// Timeout total de la requête en secondes.
 const REQUEST_TIMEOUT = 120;
 

@@ -69,7 +69,12 @@ async function render() {
     actionZone.innerHTML = `
       <button type="button" disabled title="Bientôt disponible"
               class="w-full bg-mutedbg text-mutedfg font-bold rounded-xl py-3 cursor-not-allowed">
-        💬 Contacter via Teams — bientôt disponible
+        💬 Contacter via Mail — Nécessite que l'API retourne l'adresse mail...
+      </button>
+      <span>Les liens peuvent être retournés seulement lorsque le user est connecté</span>
+      <button type="button" disabled title="Bientôt disponible"
+              class="w-full bg-mutedbg text-mutedfg font-bold rounded-xl py-3 cursor-not-allowed">
+        💬 Contacter via Teams — pas encore disponible
       </button>
     `;
   }
