@@ -48,13 +48,6 @@ services:
     security_opt:
       - no-new-privileges:true
 
-    # Garde-fous pour que le conteneur ne puisse pas saturer la machine.
-    deploy:
-      resources:
-        limits:
-          cpus: "1.0"
-          memory: 512M
-
     # Sans rotation, les logs d'un service en restart: unless-stopped peuvent
     # remplir le disque.
     logging:
@@ -74,6 +67,9 @@ services:
       MARIADB_USER: ${MARIADB_USER:-heig}
       MARIADB_PASSWORD: ${MARIADB_PASSWORD:?MARIADB_PASSWORD est requis (definir dans .env)}
       MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?MARIADB_ROOT_PASSWORD est requis (definir dans .env)}
+      # NOTE : variables MARIADB_* lues par l'entrypoint MariaDB
+      # durant 1ère initialisation du volume "db-data" (quand il est vide).
+      # En production, changer les infos du .env n'a aucun effet (car volume n'est pas recréé).
     volumes:
       - db-data:/var/lib/mysql
       - ./db/init:/docker-entrypoint-initdb.d:ro
@@ -87,10 +83,15 @@ services:
     image: phpmyadmin:5
     profiles: ["tools"]
     restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
     environment:
       PMA_HOST: db
+      # Bind address configurable (voir .env.example) : 0.0.0.0 pour
+      # administration depuis une autre machine du reseau.
     ports:
-      - "127.0.0.1:${PHPMYADMIN_PORT:-8082}:80"
+      - "${PHPMYADMIN_BIND_ADDRESS:-0.0.0.0}:${PHPMYADMIN_PORT:-8082}:80"
     depends_on:
       - db
 
