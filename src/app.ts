@@ -4,6 +4,8 @@ import path from "path";
 import { authRouter } from "./routes/auth";
 import { listingsRouter } from "./routes/listings";
 import { categoriesRouter } from "./routes/categories";
+import { reportsRouter } from "./routes/reports";
+import { adminRouter } from "./routes/admin";
 
 export const app = express();
 
@@ -31,6 +33,8 @@ app.get("/health", (_req, res) => {
 app.use("/auth", authRouter);
 app.use("/listings", listingsRouter);
 app.use("/categories", categoriesRouter);
+app.use("/reports", reportsRouter);
+app.use("/admin", adminRouter);
 
 // Frontend statique (public/) — sert l'app web mobile-first.
 app.use(express.static(path.join(process.cwd(), "public")));

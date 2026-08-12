@@ -64,9 +64,6 @@ function toListingJson(row: ListingRow) {
   };
 }
 
-// La photo de vignette est la premiere par position (req 1) ; l'enrichissement
-// owner/categorie evite un aller-retour supplementaire au frontend pour
-// afficher une carte d'annonce.
 const LISTING_SELECT = `
   SELECT
     l.id, l.owner_id, u.display_name AS owner_name,
@@ -80,8 +77,7 @@ const LISTING_SELECT = `
   LEFT JOIN categories c ON c.id = l.category_id
 `;
 
-// POST /listings — cree une annonce (req 1, 3). Il faut etre connecte :
-// owner_id vient de la session, jamais du corps de la requete.
+// POST /listings — cree une annonce , faut etre connecte 
 listingsRouter.post("/", requireAuth, async (req, res) => {
   const { categoryId, title, description, itemCondition } = req.body ?? {};
 
@@ -125,9 +121,111 @@ listingsRouter.post("/", requireAuth, async (req, res) => {
   }
 });
 
-// GET /listings — grille des annonces disponibles (req 1), avec filtres
-// optionnels pour la recherche et les onglets de categorie (req 2) et pour
-// "mes objets" sur le profil (ownerId).
+// PATCH /listings/:id — modifie une annonce existante, mise a jour partielle , reservé aux proprietaire ou un admin.
+listingsRouter.patch("/:id", requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: "id invalide" });
+    return;
+  }
+
+  interface OwnerRow extends RowDataPacket {
+    owner_id: number;
+  }
+  const [rows] = await pool.query<OwnerRow[]>(
+    "SELECT owner_id FROM listings WHERE id = ? AND deleted_at IS NULL",
+    [id]
+  );
+  const listing = rows[0];
+
+  if (!listing) {
+    res.status(404).json({ error: "annonce introuvable" });
+    return;
+  }
+
+  if (listing.owner_id !== req.session.userId) {
+    interface RoleRow extends RowDataPacket {
+      role: "user" | "admin";
+    }
+    const [userRows] = await pool.query<RoleRow[]>(
+      "SELECT role FROM users WHERE id = ?",
+      [req.session.userId]
+    );
+    if (userRows[0]?.role !== "admin") {
+      res.status(403).json({ error: "seul le proprietaire peut modifier cette annonce" });
+      return;
+    }
+  }
+
+  const { categoryId, title, description, itemCondition } = req.body ?? {};
+  const sets: string[] = [];
+  const params: (string | number)[] = [];
+
+  if (categoryId !== undefined) {
+    if (typeof categoryId !== "number" || !Number.isInteger(categoryId)) {
+      res.status(400).json({ error: "categoryId doit etre un nombre" });
+      return;
+    }
+    sets.push("category_id = ?");
+    params.push(categoryId);
+  }
+
+  if (title !== undefined) {
+    if (typeof title !== "string" || !title.trim()) {
+      res.status(400).json({ error: "title ne peut pas etre vide" });
+      return;
+    }
+    sets.push("title = ?");
+    params.push(title);
+  }
+
+  if (description !== undefined) {
+    if (typeof description !== "string" || !description.trim()) {
+      res.status(400).json({ error: "description ne peut pas etre vide" });
+      return;
+    }
+    sets.push("description = ?");
+    params.push(description);
+  }
+
+  if (itemCondition !== undefined) {
+    if (!isItemCondition(itemCondition)) {
+      res.status(400).json({
+        error: `itemCondition doit etre l'un de : ${ITEM_CONDITIONS.join(", ")}`,
+      });
+      return;
+    }
+    sets.push("item_condition = ?");
+    params.push(itemCondition);
+  }
+
+  if (sets.length === 0) {
+    res.status(400).json({ error: "aucun champ a modifier" });
+    return;
+  }
+
+  try {
+    params.push(id);
+    await pool.query(`UPDATE listings SET ${sets.join(", ")} WHERE id = ?`, params);
+  } catch (err) {
+    if ((err as { code?: string }).code === "ER_NO_REFERENCED_ROW_2") {
+      res.status(400).json({ error: "categoryId invalide" });
+      return;
+    }
+    throw err;
+  }
+
+  const [updatedRows] = await pool.query<ListingRow[]>(
+    `${LISTING_SELECT} WHERE l.id = ?`,
+    [id]
+  );
+
+  res.json(toListingJson(updatedRows[0]));
+});
+
+// GET /listings — grille des annonces disponibles avec filtres
+// optionnels pour la recherche et les onglets de categorie  et pour "mes objets" sur le profil (ownerId).
 listingsRouter.get("/", async (req, res) => {
   const { categoryId, ownerId, q } = req.query;
 
@@ -167,8 +265,7 @@ listingsRouter.get("/", async (req, res) => {
   res.json(rows.map(toListingJson));
 });
 
-// GET /listings/:id — fiche detail d'une annonce (req 4), avec le carrousel
-// complet de photos.
+// GET /listings/:id — fiche detail d'une annonce 
 listingsRouter.get("/:id", async (req, res) => {
   const id = Number(req.params.id);
 
@@ -200,9 +297,7 @@ listingsRouter.get("/:id", async (req, res) => {
   });
 });
 
-// DELETE /listings/:id — le proprietaire ferme/retire son annonce (req 3, 6).
-// Suppression douce (deleted_at) : l'historique reste disponible pour la
-// moderation (req 9).
+// DELETE /listings/:id — le proprietaire ferme/retire son annonce soft delete (deleted_at) : l'historique reste disponible pour la moderation 
 listingsRouter.delete("/:id", requireAuth, async (req, res) => {
   const id = Number(req.params.id);
 
@@ -225,6 +320,9 @@ listingsRouter.delete("/:id", requireAuth, async (req, res) => {
     return;
   }
 
+  let deletedByAdmin = false;
+  let reason: string | undefined;
+
   if (listing.owner_id !== req.session.userId) {
     interface RoleRow extends RowDataPacket {
       role: "user" | "admin";
@@ -237,12 +335,27 @@ listingsRouter.delete("/:id", requireAuth, async (req, res) => {
       res.status(403).json({ error: "seul le proprietaire peut retirer cette annonce" });
       return;
     }
+    deletedByAdmin = true;
+
+    const bodyReason = (req.body ?? {}).reason;
+    if (typeof bodyReason !== "string" || !bodyReason.trim()) {
+      res.status(400).json({ error: "reason est requis pour une suppression par un admin" });
+      return;
+    }
+    reason = bodyReason;
   }
 
   await pool.query(
     "UPDATE listings SET deleted_at = CURRENT_TIMESTAMP, status = 'closed', closed_at = CURRENT_TIMESTAMP WHERE id = ?",
     [id]
   );
+
+  if (deletedByAdmin) {
+    await pool.query(
+      "INSERT INTO moderation_logs (actor_id, action, target_type, target_id, details) VALUES (?, 'delete_listing', 'listing', ?, ?)",
+      [req.session.userId, id, JSON.stringify({ reason })]
+    );
+  }
 
   res.status(204).send();
 });

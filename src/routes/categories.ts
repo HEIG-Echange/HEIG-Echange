@@ -10,8 +10,7 @@ interface CategoryRow extends RowDataPacket {
   label: string;
 }
 
-// GET /categories — reference fixe utilisee pour les filtres (req 2) et le
-// formulaire de creation d'annonce.
+// GET /categories — retourne les categories disponibles
 categoriesRouter.get("/", async (_req, res) => {
   const [rows] = await pool.query<CategoryRow[]>(
     "SELECT id, slug, label FROM categories ORDER BY label ASC"

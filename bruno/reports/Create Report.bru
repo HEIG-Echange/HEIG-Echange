@@ -1,0 +1,36 @@
+meta {
+  name: Create Report
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/reports
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "listingId": {{listingId}},
+    "reason": "{{reason}}"
+  }
+}
+
+vars:pre-request {
+  reason: Annonce inappropriee
+}
+
+script:pre-request {
+  // Valeur par defaut si aucune annonce n'a ete creee dans cette session —
+  // modifiable directement dans l'onglet Vars sinon.
+  if (!bru.getVar("listingId")) {
+    bru.setVar("listingId", 1);
+  }
+}
+
+script:post-response {
+  if (res.body && res.body.id) {
+    bru.setVar("reportId", res.body.id);
+  }
+}

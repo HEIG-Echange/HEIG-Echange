@@ -9,3 +9,15 @@ get {
   body: none
   auth: none
 }
+
+params:query {
+  ~categoryId: {{categoryId}}
+  ~ownerId: {{ownerId}}
+  ~q: {{q}}
+}
+
+vars:pre-request {
+  categoryId: 1
+  ownerId: 1
+  q: calculatrice
+}

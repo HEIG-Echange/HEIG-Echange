@@ -1,0 +1,22 @@
+meta {
+  name: Block User
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/admin/users/{{userId}}/block
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "reason": "{{blockReason}}"
+  }
+}
+
+vars:pre-request {
+  userId: 1
+  blockReason: Comportement abusif signale
+}

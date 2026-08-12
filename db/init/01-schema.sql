@@ -175,6 +175,7 @@ CREATE TABLE moderation_logs (
   action      VARCHAR(120)     NOT NULL,   -- ex: block_user, delete_listing, update_listing
   target_type ENUM('user','listing') NOT NULL,
   target_id   BIGINT UNSIGNED NOT NULL,
+  details     JSON                NULL DEFAULT NULL, -- motif
   created_at  TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   KEY idx_modlog_target (target_type, target_id),
