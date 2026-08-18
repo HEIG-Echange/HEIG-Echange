@@ -81,6 +81,7 @@ CREATE TABLE listings (
   description    TEXT            NOT NULL,
   item_condition ENUM('neuf','tres_bon','bon','usage','a_reparer') NOT NULL, -- req 1 : etat
   status         ENUM('available','reserved','closed') NOT NULL DEFAULT 'available',
+  location       VARCHAR(255)        NULL DEFAULT NULL,       -- lieu libre (texte)
   created_at     TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at     TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP
                                  ON UPDATE CURRENT_TIMESTAMP,

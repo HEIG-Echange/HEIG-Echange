@@ -24,11 +24,57 @@ async function request(method, path, body) {
   return data;
 }
 
+// Envoi multipart (upload de fichier). N'ajoute pas de Content-Type : le
+// navigateur pose lui-meme le boundary a partir du FormData.
+async function upload(path, formData) {
+  const res = await fetch(path, {
+    method: "POST",
+    credentials: "include",
+    body: formData,
+  });
+
+  if (res.status === 204) return null;
+
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    const error = new Error(data?.error ?? `Erreur ${res.status}`);
+    error.status = res.status;
+    throw error;
+  }
+  return data;
+}
+
 export const api = {
   get: (path) => request("GET", path),
   post: (path, body) => request("POST", path, body),
   del: (path) => request("DELETE", path),
+  upload,
 };
+
+// Config publique (memo). Sert notamment a construire les liens de partage et
+// d'invitation avec le bon domaine.
+let configPromise = null;
+export function getConfig() {
+  if (!configPromise) {
+    configPromise = api.get("/config").catch(() => ({
+      publicBaseUrl: window.location.origin,
+    }));
+  }
+  return configPromise;
+}
+
+// Construit un lien mailto d'invitation a rejoindre la plateforme. Ouvre le
+// client mail du visiteur avec un message pre-rempli (req: invitation par mail).
+export function buildInviteMailto(baseUrl) {
+  const subject = "Rejoins HEIG-Échange";
+  const body =
+    "Salut !\n\n" +
+    "Je t'invite à rejoindre HEIG-Échange, la plateforme de don et d'échange " +
+    "d'objets entre étudiant·e·s.\n\n" +
+    `Ça se passe ici : ${baseUrl}\n\n` +
+    "À bientôt !";
+  return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
 
 // Renvoie l'utilisateur connecte, ou null. Ne jette jamais.
 export async function getCurrentUser() {

@@ -7,6 +7,15 @@ Collection Bruno correspondante : `bruno/` , voir `bruno/README.md` .
 
 En local : `http://localhost:3000`
 
+Le domaine public (QR codes, liens de partage/invitation) est configurable via
+la variable d'environnement `PUBLIC_BASE_URL` (voir `.env.example`).
+
+### `GET /config`
+
+Config publique consommee par le frontend.
+
+- `200` → `{ publicBaseUrl }`
+
 ## Authentification - `/auth`
 
 L'authentification actuelle est **email + mot de passe** (bcrypt), via
@@ -98,16 +107,17 @@ Crée une annonce, `owner_id` vient de la session.
 | `title` | string | oui |
 | `description` | string | oui |
 | `itemCondition` | `"neuf" \| "tres_bon" \| "bon" \| "usage" \| "a_reparer"` | oui |
+| `location` | string \| null | non - lieu libre (texte) |
 
-- `201` → `{ id, ownerId, categoryId, title, description, itemCondition, status: "available" }`
+- `201` → `{ id, ownerId, categoryId, title, description, itemCondition, location, status: "available" }`
 - `400` - champs manquants/invalides, ou `categoryId` inexistant
 - `401` - pas connecté
 
 ### `PATCH /listings/:id` - connecté, propriétaire ou admin
 
 Mise à jour partielle : mêmes champs que la création (`categoryId`,
-`title`, `description`, `itemCondition`), tous optionnels mais au moins un
-requis.
+`title`, `description`, `itemCondition`, `location`), tous optionnels mais au
+moins un requis. `location` accepte `null` pour effacer le lieu.
 
 - `200` → l'annonce mise à jour (même forme que `GET /listings/:id` sans le
   tableau `photos`)
@@ -118,7 +128,7 @@ requis.
 
 ### `GET /listings`
 
-Grille des annonces. Filtres optionnels,
+Grille des annonces. **Accessible sans être connecté.** Filtres optionnels,
 combinables :
 
 | Query param | Type | Effet |
@@ -128,16 +138,46 @@ combinables :
 | `q` | string | recherche plein texte (`title` + `description`, FULLTEXT MariaDB) |
 
 - `200` → tableau d'annonces, `photoUrl` = première photo (vignette) ou
-  `null`, triées par date de création décroissante
+  `null`, `location` (lieu libre ou `null`), triées par date de création
+  décroissante
 - `400` - `categoryId`/`ownerId` fourni mais non numérique
+
+> **Confidentialité des contacts.** `ownerName` et `ownerEmail` ne sont
+> renseignés que si la requête provient d'un utilisateur **connecté**. Pour un
+> visiteur anonyme, ces deux champs valent `null` (l'annonce reste visible, mais
+> pas les informations de contact du donneur).
 
 ### `GET /listings/:id`
 
-Fiche détail, avec le tableau complet des photos.
+Fiche détail, avec le tableau complet des photos. **Accessible sans être
+connecté** (mêmes règles de masquage `ownerName`/`ownerEmail` que ci-dessus).
 
-- `200` → annonce + `photos: [{ id, url, position }]`
+- `200` → annonce (+ `location`, `ownerEmail`) + `photos: [{ id, url, position }]`
 - `400` - id non numérique
 - `404` - annonce introuvable
+
+### `POST /listings/:id/photos` - connecté, propriétaire ou admin
+
+Ajoute une photo à une annonce. Corps **multipart/form-data**, champ `photo`
+(image jpeg/png/webp/gif, 5 Mo max). Le fichier est stocké sur disque (volume
+Docker `uploads-data`) et servi via `/uploads/...`.
+
+- `201` → `{ id, url, position }`
+- `400` - fichier manquant/invalide, id non numérique, image trop volumineuse
+- `401` - pas connecté
+- `403` - ni propriétaire ni admin
+- `404` - annonce introuvable
+
+### `POST /listings/ai/analyze` - connecté
+
+Envoie une photo (multipart, champ `photo`) à une IA (Claude vision) et renvoie
+une pré-saisie pour le formulaire d'annonce. **Ne crée aucune annonce.**
+
+- `200` → `{ categorySlug, categoryId, itemCondition, description }`
+- `400` - fichier manquant/invalide
+- `401` - pas connecté
+- `503` - analyse IA non configurée (`ANTHROPIC_API_KEY` absente)
+- `502` - l'appel à l'IA a échoué
 
 ### `DELETE /listings/:id` - connecté, propriétaire ou admin
 
@@ -167,6 +207,28 @@ Référence fixe, utilisée pour les filtres et le formulaire de création
 d'annonce.
 
 - `200` → `[{ id, slug, label }]`, triées par `label`
+
+---
+
+## Utilisateurs - `/users`
+
+### `GET /users/:id`
+
+Profil **public** d'un utilisateur. Accessible sans être connecté. Ne renvoie
+aucune information de contact (email).
+
+- `200` → `{ id, displayName, avatarUrl, createdAt, activeListings, profileUrl }`
+- `400` - id non numérique
+- `404` - utilisateur introuvable (ou supprimé/bloqué)
+
+### `GET /users/:id/qr`
+
+QR code (SVG) pointant vers le profil public (`PUBLIC_BASE_URL/u.html?id=:id`).
+Le domaine encodé provient de la variable d'environnement `PUBLIC_BASE_URL`.
+
+- `200` → image `image/svg+xml`
+- `400` - id non numérique
+- `404` - utilisateur introuvable (ou supprimé/bloqué)
 
 ---
 

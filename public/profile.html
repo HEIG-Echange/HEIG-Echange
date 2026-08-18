@@ -71,6 +71,27 @@
 
     </div>
 
+    <div class="bg-white border border-appfg/10 rounded-xl p-4">
+      <div class="flex items-center gap-4">
+        <img id="qr-img" alt="QR code de mon profil"
+             class="w-24 h-24 rounded-lg border border-appfg/10 bg-white flex-shrink-0" />
+        <div class="min-w-0">
+          <p class="font-bold text-sm">Mon QR code</p>
+          <p class="text-xs text-mutedfg mt-0.5">Partagez votre profil : un scan ouvre vos annonces.</p>
+          <div class="flex flex-wrap gap-2 mt-2">
+            <button id="share-btn" type="button"
+                    class="text-xs font-bold px-3 py-1.5 rounded-full bg-brand text-white hover:bg-brand-dark transition-colors">
+              Partager mon profil
+            </button>
+            <a id="invite-btn" href="#"
+               class="text-xs font-bold px-3 py-1.5 rounded-full border border-appfg/15 hover:bg-secondarybg transition-colors">
+              ✉️ Inviter un ami
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div>
       <div class="flex items-center justify-between mb-3">
         <h2 class="font-extrabold">Mes objets</h2>

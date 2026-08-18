@@ -1,8 +1,17 @@
-import { api, CONDITION_LABELS, CONDITION_BADGE_CLASSES, categoryBadgeClass, initials, escapeHtml } from "../api.js";
+import { api, getConfig, buildInviteMailto, CONDITION_LABELS, CONDITION_BADGE_CLASSES, categoryBadgeClass, initials, escapeHtml } from "../api.js";
 
 const tabsEl = document.getElementById("category-tabs");
 const gridEl = document.getElementById("listings-grid");
 const searchInput = document.getElementById("search-input");
+
+// Invitation par email : ouvre le client mail avec un message pre-rempli.
+// Accessible aux visiteurs non connectes comme aux membres.
+const inviteBtn = document.getElementById("invite-btn");
+if (inviteBtn) {
+  getConfig().then(({ publicBaseUrl }) => {
+    inviteBtn.href = buildInviteMailto(publicBaseUrl);
+  });
+}
 
 let activeCategoryId = null;
 let searchTimer = null;
