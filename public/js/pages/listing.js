@@ -41,9 +41,12 @@ async function render() {
       </div>
       <h2 class="text-xl font-extrabold">${escapeHtml(listing.title)}</h2>
       <p class="text-sm text-appfg/80 whitespace-pre-line">${escapeHtml(listing.description)}</p>
+      ${listing.location ? `<p class="text-sm text-mutedfg flex items-center gap-1.5">📍 ${escapeHtml(listing.location)}</p>` : ""}
       <div class="flex items-center gap-2 pt-2 border-t border-appfg/10">
-        <div class="w-8 h-8 rounded-full bg-brand text-white text-xs font-bold flex items-center justify-center">${escapeHtml(initials(listing.ownerName))}</div>
-        <span class="text-sm text-mutedfg">Proposé par ${escapeHtml(listing.ownerName ?? "un·e étudiant·e")}</span>
+        <a href="u.html?id=${listing.ownerId}" class="flex items-center gap-2 min-w-0">
+          <div class="w-8 h-8 rounded-full bg-brand text-white text-xs font-bold flex items-center justify-center flex-shrink-0">${escapeHtml(initials(listing.ownerName))}</div>
+          <span class="text-sm text-mutedfg truncate">Proposé par ${escapeHtml(listing.ownerName ?? "un·e étudiant·e")}</span>
+        </a>
       </div>
       <div id="action-zone" class="pt-2"></div>
     </div>
@@ -65,17 +68,29 @@ async function render() {
       }
     });
     actionZone.appendChild(btn);
-  } else {
+  } else if (user && listing.ownerEmail) {
+    // Visiteur connecte : contact par mail du proprietaire, message pre-rempli.
+    const subject = `HEIG-Échange — ${listing.title}`;
+    const body =
+      `Bonjour ${listing.ownerName ?? ""},\n\n` +
+      `Je suis intéressé·e par votre annonce « ${listing.title} » sur HEIG-Échange. ` +
+      "Est-elle toujours disponible ?\n\n" +
+      `${window.location.href}\n\nMerci !`;
+    const mailto = `mailto:${listing.ownerEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     actionZone.innerHTML = `
-      <button type="button" disabled title="Bientôt disponible"
-              class="w-full bg-mutedbg text-mutedfg font-bold rounded-xl py-3 cursor-not-allowed">
-        💬 Contacter via Mail — Nécessite que l'API retourne l'adresse mail...
-      </button>
-      <span>Les liens peuvent être retournés seulement lorsque le user est connecté</span>
-      <button type="button" disabled title="Bientôt disponible"
-              class="w-full bg-mutedbg text-mutedfg font-bold rounded-xl py-3 cursor-not-allowed">
-        💬 Contacter via Teams — pas encore disponible
-      </button>
+      <a href="${mailto}"
+         class="block text-center w-full bg-brand hover:bg-brand-dark text-white font-bold rounded-xl py-3 transition-colors">
+        ✉️ Contacter par mail
+      </a>
+    `;
+  } else {
+    // Visiteur non connecte : les coordonnees ne sont pas exposees.
+    actionZone.innerHTML = `
+      <a href="login.html"
+         class="block text-center w-full bg-brand hover:bg-brand-dark text-white font-bold rounded-xl py-3 transition-colors">
+        Se connecter pour contacter le donneur
+      </a>
+      <p class="text-[11px] text-mutedfg text-center mt-2">Les coordonnées ne sont visibles que par les membres connectés.</p>
     `;
   }
 }

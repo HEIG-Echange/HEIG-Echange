@@ -46,7 +46,11 @@
         </label>
         <input id="photos-input" type="file" accept="image/*" multiple class="hidden" />
         <div id="photo-previews" class="flex gap-2 mt-3 flex-wrap"></div>
-        <p class="text-[11px] text-mutedfg mt-2">L'envoi de photos vers le serveur arrive bientôt — pour l'instant, seul un aperçu local est disponible.</p>
+        <button id="ai-btn" type="button"
+                class="hidden mt-3 w-full inline-flex items-center justify-center gap-2 border border-brand/30 text-brand text-sm font-bold rounded-xl py-2.5 hover:bg-brand-light transition-colors disabled:opacity-50">
+          ✨ Pré-remplir avec l'IA
+        </button>
+        <p id="ai-status" class="hidden text-[11px] text-mutedfg mt-2"></p>
       </div>
 
       <div>
@@ -73,10 +77,10 @@
       </div>
 
       <div>
-        <label class="block text-xs font-bold uppercase tracking-wide mb-1.5">Lieu</label>
-        <input type="text" value="HEIG-VD, Yverdon" disabled
-               class="w-full bg-mutedbg border border-appfg/10 rounded-xl px-3.5 py-3 text-sm text-mutedfg" />
-        <p class="text-[11px] text-mutedfg mt-1">Bientôt configurable — pour l'instant fixé au campus HEIG-VD.</p>
+        <label for="location-input" class="block text-xs font-bold uppercase tracking-wide mb-1.5">Lieu</label>
+        <input id="location-input" type="text" placeholder="Ex: HEIG-VD Yverdon, bâtiment C"
+               class="w-full bg-white border border-appfg/15 rounded-xl px-3.5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30" />
+        <p class="text-[11px] text-mutedfg mt-1">Indiquez où récupérer l'objet (champ libre, optionnel).</p>
       </div>
 
       <div class="hidden">

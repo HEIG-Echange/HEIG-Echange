@@ -1,4 +1,4 @@
-import { api, requireUser, logout, initials, CONDITION_LABELS, CONDITION_BADGE_CLASSES, categoryBadgeClass, escapeHtml } from "../api.js";
+import { api, requireUser, logout, getConfig, buildInviteMailto, initials, CONDITION_LABELS, CONDITION_BADGE_CLASSES, categoryBadgeClass, escapeHtml } from "../api.js";
 
 const user = await requireUser();
 
@@ -8,6 +8,31 @@ document.getElementById("email").textContent = user.email;
 document.getElementById("role-badge").textContent = user.role === "admin" ? "Administrateur" : "Étudiant·e";
 
 document.getElementById("logout-btn").addEventListener("click", () => logout());
+
+// QR code du profil (genere par l'API, domaine via variable d'environnement).
+document.getElementById("qr-img").src = `/users/${user.id}/qr`;
+
+// Partage du profil (Web Share si dispo, sinon copie du lien) + invitation.
+const { publicBaseUrl } = await getConfig();
+const profileUrl = `${publicBaseUrl}/u.html?id=${user.id}`;
+document.getElementById("invite-btn").href = buildInviteMailto(publicBaseUrl);
+
+document.getElementById("share-btn").addEventListener("click", async () => {
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: "Mon profil HEIG-Échange", url: profileUrl });
+      return;
+    } catch {
+      // Partage annule : on retombe sur la copie.
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(profileUrl);
+    alert("Lien du profil copié !");
+  } catch {
+    prompt("Copiez le lien de votre profil :", profileUrl);
+  }
+});
 
 // Nombre de groupes/amis prioritaires : fonctionnalite en apercu local
 // uniquement (pas encore de table en base), voir priority-friends.js.
