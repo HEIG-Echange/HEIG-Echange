@@ -120,6 +120,27 @@ CREATE TABLE listing_photos (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------------
+-- listing_interests — un etudiant se declare interesse par une annonce
+--
+-- Case a cocher "je suis interesse" sur une annonce : un enregistrement par
+-- (listing_id, user_id), pas un log append-only (UNIQUE KEY ci-dessous) — on
+-- peut donc s'inscrire puis se desinscrire sans accumuler de doublons.
+-- ---------------------------------------------------------------------------
+CREATE TABLE listing_interests (
+  id         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  listing_id BIGINT UNSIGNED NOT NULL,
+  user_id    BIGINT UNSIGNED NOT NULL,
+  created_at TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_interests_listing_user (listing_id, user_id),
+  KEY idx_interests_user (user_id),
+  CONSTRAINT fk_interests_listing
+    FOREIGN KEY (listing_id) REFERENCES listings(id) ON DELETE CASCADE,
+  CONSTRAINT fk_interests_user
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------------
 -- messages — un etudiant interesse contacte le donneur (req 5)
 --
 -- On conserve recipient_id (denormalise depuis listings.owner_id au moment de

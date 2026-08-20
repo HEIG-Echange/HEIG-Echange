@@ -306,6 +306,23 @@ listingsRouter.get("/", async (req, res) => {
   res.json(rows.map((row) => toListingJson(row, includeContact)));
 });
 
+// GET /listings/interested — ids des annonces (encore actives)  sur lesquelles l'utilisateur connecte a manifeste son interet
+listingsRouter.get("/interested", requireAuth, async (req, res) => {
+  interface InterestedRow extends RowDataPacket {
+    listing_id: number;
+  }
+  const [rows] = await pool.query<InterestedRow[]>(
+    `SELECT li.listing_id
+     FROM listing_interests li
+     JOIN listings l ON l.id = li.listing_id AND l.deleted_at IS NULL
+     WHERE li.user_id = ?
+     ORDER BY li.created_at DESC`,
+    [req.session.userId]
+  );
+
+  res.json(rows.map((row) => row.listing_id));
+});
+
 // GET /listings/:id — fiche detail d'une annonce 
 listingsRouter.get("/:id", async (req, res) => {
   const id = Number(req.params.id);
@@ -339,7 +356,92 @@ listingsRouter.get("/:id", async (req, res) => {
   });
 });
 
-// DELETE /listings/:id — le proprietaire ferme/retire son annonce soft delete (deleted_at) : l'historique reste disponible pour la moderation 
+// GET /listings/:id/interest — voir les personne interesse par une anonce 
+listingsRouter.get("/:id/interest", requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: "id invalide" });
+    return;
+  }
+
+  interface InterestRow extends RowDataPacket {
+    id: number;
+  }
+  const [rows] = await pool.query<InterestRow[]>(
+    "SELECT id FROM listing_interests WHERE listing_id = ? AND user_id = ?",
+    [id, req.session.userId]
+  );
+
+  res.json({ interested: rows.length > 0 });
+});
+
+// POST /listings/:id/interest — un utilisateur connecte veut marquer son interet pr une annonce
+listingsRouter.post("/:id/interest", requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: "id invalide" });
+    return;
+  }
+
+  interface OwnerRow extends RowDataPacket {
+    owner_id: number;
+  }
+  const [rows] = await pool.query<OwnerRow[]>(
+    "SELECT owner_id FROM listings WHERE id = ? AND deleted_at IS NULL",
+    [id]
+  );
+  const listing = rows[0];
+
+  if (!listing) {
+    res.status(404).json({ error: "annonce introuvable" });
+    return;
+  }
+
+  if (listing.owner_id === req.session.userId) {
+    res.status(400).json({
+      error: "impossible de manifester de l'interet pour sa propre annonce",
+    });
+    return;
+  }
+
+  try {
+    await pool.query(
+      "INSERT INTO listing_interests (listing_id, user_id) VALUES (?, ?)",
+      [id, req.session.userId]
+    );
+    res.status(201).json({ interested: true });
+  } catch (err) {
+    if ((err as { code?: string }).code === "ER_DUP_ENTRY") {
+      // Deja enregistre : on ne renvoie pas d'erreur pour un clic repete.
+      res.status(200).json({ interested: true });
+      return;
+    }
+    throw err;
+  }
+});
+
+// DELETE /listings/:id/interest — un utilisateur connecte n'est plus interesse par une annonce
+listingsRouter.delete("/:id/interest", requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: "id invalide" });
+    return;
+  }
+
+  const [result] = await pool.query<ResultSetHeader>(
+    "DELETE FROM listing_interests WHERE listing_id = ? AND user_id = ?",
+    [id, req.session.userId]
+  );
+
+  if (result.affectedRows === 0) {
+    res.status(404).json({ error: "aucun interet enregistre pour cette annonce" });
+    return;
+  }
+
+  res.status(204).send();
+});
+
+// DELETE /listings/:id — le proprietaire ferme/retire son annonce soft delete (deleted_at) : l'historique reste disponible pour la moderation
 listingsRouter.delete("/:id", requireAuth, async (req, res) => {
   const id = Number(req.params.id);
 

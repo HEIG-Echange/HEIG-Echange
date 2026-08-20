@@ -34,6 +34,7 @@ Tout tourne dans Docker : aucun serveur SQL n'est installé sur l'hôte.
 | `categories` | 2 (filtres) |
 | `listings` | 1 (grille), 2 (recherche FULLTEXT + catégorie), 3 (CRUD), 6 (`status`/`closed_at`) |
 | `listing_photos` | 1 (vignette), 4 (carrousel, `position`) |
+| `listing_interests` | inscription "je suis intéressé" sur une annonce (une ligne par couple annonce/utilisateur, `UNIQUE`) |
 | `messages` | 5 (contact donneur ↔ intéressé) |
 | `reports` | 9 (signalement de contenu) |
 | `moderation_logs` | 9 (historique des actions admin) |

@@ -197,6 +197,43 @@ connecté** (mêmes règles de masquage `ownerName`/`ownerEmail` que ci-dessus).
 - `400` - id non numérique
 - `404` - annonce introuvable
 
+### `GET /listings/interested` - connecté
+
+Ids des annonces (encore actives) sur lesquelles l'utilisateur connecté a
+manifesté son intérêt.
+
+- `200` → `[listingId, ...]` (tableau de nombres, triés par date d'inscription
+  décroissante)
+- `401` - pas connecté
+
+### `GET /listings/:id/interest` - connecté
+
+État de l'intérêt du visiteur connecté pour cette annonce.
+Renvoi true si l'utilisateur a deja marque son interet pr cet article
+
+- `200` → `{ interested: boolean }`
+- `400` - id non numérique
+- `401` - pas connecté
+
+### `POST /listings/:id/interest` - connecté
+
+Marquer l'utilisateur comme interessé par l'article
+
+- `201` → `{ interested: true }` (première fois)
+- `200` → `{ interested: true }` (déjà enregistré)
+- `400` - id non numérique, ou tentative sur sa propre annonce
+- `401` - pas connecté
+- `404` - annonce introuvable
+
+### `DELETE /listings/:id/interest` - connecté
+
+Enleve l'interet de l'utilisateur
+
+- `204`, pas de body
+- `400` - id non numérique
+- `401` - pas connecté
+- `404` - aucun intérêt enregistré pour cette annonce (par ce compte)
+
 ### `POST /listings/:id/photos` - connecté, propriétaire ou admin
 
 Ajoute une photo à une annonce. Corps **multipart/form-data**, champ `photo`
