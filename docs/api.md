@@ -20,11 +20,16 @@ Config publique consommee par le frontend.
 
 L'authentification actuelle est **email + mot de passe** (bcrypt), via
 `express-session` : un cookie de session (`connect.sid`) est posé au
-register/login et doit être renvoyé à chaque requête protégée. 
+login et doit être renvoyé à chaque requête protégée.
+
+Un compte fraîchement créé n'est **pas** utilisable immédiatement : l'adresse
+email doit d'abord être vérifiée par un code reçu par email (voir
+`POST /auth/verify-email` ci-dessous). `POST /auth/login` refuse la connexion
+tant que ce n'est pas fait.
 
 ### `POST /auth/register`
 
-Crée un compte et ouvre la session.
+Crée un compte (non vérifié) et envoie un code de vérification par email.**N'ouvre pass la session**
 
 | Champ | Type | Requis | Contrainte |
 |---|---|---|---|
@@ -32,12 +37,46 @@ Crée un compte et ouvre la session.
 | `displayName` | string | oui | non vide |
 | `password` | string | oui | 8 caractères minimum |
 
-- `201` → `{ id, email, displayName, role: "user" }`
+- `201` → `{ id, email, displayName, role: "user", emailVerified: false, message }`
+  (+ `devVerificationCode` — voir encadré ci-dessous)
 - `400` - champs manquants/invalides
 - `403` - domaine d'email non autorisé
 - `409` - un compte existe déjà pour cet email
 
 Les comptes admin doivent être crée en base de données.
+
+> **`devVerificationCode` (dev uniquement).** Quand `NODE_ENV !== "production"`
+> la réponse inclut aussi le code de vérification en clair,
+> pour pouvoir tester sans accéder à une vraie boîte mail.
+
+### `POST /auth/verify-email`
+
+Confirme l'adresse email avec le code reçu (8 chiffres, valable 15 minutes,
+usage unique).
+
+| Champ | Type | Requis |
+|---|---|---|
+| `email` | string | oui |
+| `code` | string | oui |
+
+- `200` → `{ emailVerified: true }`
+- `400` - champs manquants, ou code invalide/expiré
+- `404` - aucun compte pour cet email
+- `409` - cet email est déjà vérifié
+
+### `POST /auth/resend-code`
+
+Régénère et renvoie un code de vérification (ex. code perdu ou expiré).
+
+| Champ | Type | Requis |
+|---|---|---|
+| `email` | string | oui |
+
+- `200` → `{ message }` (+ `devVerificationCode` en dev, même règle que
+  `POST /auth/register`)
+- `400` - `email` manquant
+- `404` - aucun compte pour cet email
+- `409` - cet email est déjà vérifié
 
 ### `POST /auth/login`
 
@@ -49,7 +88,9 @@ Les comptes admin doivent être crée en base de données.
 - `200` → `{ id, email, displayName, role }`
 - `400` - champs manquants
 - `401` - mot de passe incorrect
-- `403` - compte bloqué (`is_blocked`)
+- `403` - email pas encore vérifié (`code: "EMAIL_NOT_VERIFIED"`, voir
+  `POST /auth/verify-email`/`POST /auth/resend-code`) ou compte bloqué
+  (`is_blocked`)
 - `404` - aucun compte pour cet email
 
 ### `POST /auth/logout`
