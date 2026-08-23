@@ -2,6 +2,11 @@ import { Router } from "express";
 import type { RowDataPacket } from "mysql2";
 import { pool } from "../db";
 import { requireAdmin } from "../middleware/requireAdmin";
+import {
+  accountEmailStatus,
+  EMAIL_REVERIFICATION_INTERVAL_DAYS,
+} from "../auth/emailVerification";
+import { runEmailReverificationSweep } from "../jobs/emailReverification";
 
 export const adminRouter = Router();
 adminRouter.use(requireAdmin);
@@ -300,4 +305,52 @@ adminRouter.get("/listings", async (req, res) => {
       deletedAt: r.deleted_at,
     }))
   );
+});
+
+// GET /admin/suspended-accounts — comptes dont l'adresse email n'est plus
+// confirmee depuis plus de 6 mois. Ils restent en base mais sont suspendus :
+// connexion refusee et annonces masquees des listes publiques.
+adminRouter.get("/suspended-accounts", async (_req, res) => {
+  interface SuspendedRow extends RowDataPacket {
+    id: number;
+    email: string;
+    display_name: string;
+    email_verified_at: string | null;
+    reverification_reminder_sent_at: string | null;
+    hidden_listings: number;
+  }
+
+  const [rows] = await pool.query<SuspendedRow[]>(
+    `SELECT u.id, u.email, u.display_name, u.email_verified_at,
+            u.reverification_reminder_sent_at,
+            (SELECT COUNT(*) FROM listings l
+              WHERE l.owner_id = u.id AND l.deleted_at IS NULL) AS hidden_listings
+       FROM users u
+      WHERE u.deleted_at IS NULL
+        AND (u.email_verified_at IS NULL
+             OR u.email_verified_at <= (NOW() - INTERVAL ? DAY))
+      ORDER BY u.email_verified_at IS NULL DESC, u.email_verified_at ASC`,
+    [EMAIL_REVERIFICATION_INTERVAL_DAYS]
+  );
+
+  res.json(
+    rows.map((r) => ({
+      id: r.id,
+      email: r.email,
+      displayName: r.display_name,
+      emailStatus: accountEmailStatus(r.email_verified_at),
+      emailVerifiedAt: r.email_verified_at,
+      lastReminderAt: r.reverification_reminder_sent_at,
+      hiddenListings: r.hidden_listings,
+    }))
+  );
+});
+
+// POST /admin/jobs/email-reverification — declenche a la main le balayage qui
+// envoie les rappels de reconfirmation. Le meme balayage tourne tout seul une
+// fois par jour (voir src/server.ts) ; cette route sert a le forcer depuis un
+// cron externe ou pour une demo, sans attendre 24 h.
+adminRouter.post("/jobs/email-reverification", async (_req, res) => {
+  const result = await runEmailReverificationSweep();
+  res.json(result);
 });

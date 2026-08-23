@@ -3,6 +3,7 @@ import QRCode from "qrcode";
 import type { RowDataPacket } from "mysql2";
 import { pool } from "../db";
 import { PUBLIC_BASE_URL } from "../config";
+import { isAccountSuspended } from "../auth/emailVerification";
 
 export const usersRouter = Router();
 
@@ -12,12 +13,14 @@ interface PublicUserRow extends RowDataPacket {
   avatar_url: string | null;
   created_at: string;
   is_blocked: number | boolean;
+  email_verified_at: string | null;
   active_listings: number;
 }
 
 const PUBLIC_USER_SELECT = `
   SELECT
     u.id, u.display_name, u.avatar_url, u.created_at, u.is_blocked,
+    u.email_verified_at,
     (SELECT COUNT(*) FROM listings l
        WHERE l.owner_id = u.id AND l.deleted_at IS NULL) AS active_listings
   FROM users u
@@ -41,7 +44,10 @@ usersRouter.get("/:id", async (req, res) => {
   const [rows] = await pool.query<PublicUserRow[]>(PUBLIC_USER_SELECT, [id]);
   const user = rows[0];
 
-  if (!user || user.is_blocked) {
+  // Un compte bloque ou suspendu (adresse non reconfirmee depuis 6 mois) n.a
+  // plus de profil public : comme ses annonces, il disparait des vues
+  // publiques sans etre supprime.
+  if (!user || user.is_blocked || isAccountSuspended(user.email_verified_at)) {
     res.status(404).json({ error: "utilisateur introuvable" });
     return;
   }
@@ -68,7 +74,10 @@ usersRouter.get("/:id/qr", async (req, res) => {
   const [rows] = await pool.query<PublicUserRow[]>(PUBLIC_USER_SELECT, [id]);
   const user = rows[0];
 
-  if (!user || user.is_blocked) {
+  // Un compte bloque ou suspendu (adresse non reconfirmee depuis 6 mois) n.a
+  // plus de profil public : comme ses annonces, il disparait des vues
+  // publiques sans etre supprime.
+  if (!user || user.is_blocked || isAccountSuspended(user.email_verified_at)) {
     res.status(404).json({ error: "utilisateur introuvable" });
     return;
   }

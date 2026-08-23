@@ -9,6 +9,8 @@ import { reportsRouter } from "./routes/reports";
 import { adminRouter } from "./routes/admin";
 import { usersRouter } from "./routes/users";
 import { PUBLIC_BASE_URL, UPLOAD_DIR } from "./config";
+import { MAX_PHOTOS_PER_LISTING } from "./routes/listings";
+import { EMAIL_REVERIFICATION_INTERVAL_DAYS } from "./auth/emailVerification";
 
 export const app = express();
 
@@ -33,9 +35,15 @@ app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
 
-// Config publique consommee par le frontend (domaine pour liens/partage).
+// Config publique consommee par le frontend : domaine des liens de partage
+// (QR, mailto, images) et quelques constantes metier, pour que le client n'ait
+// pas a dupliquer des valeurs qui vivent cote serveur.
 app.get("/config", (_req, res) => {
-  res.json({ publicBaseUrl: PUBLIC_BASE_URL });
+  res.json({
+    publicBaseUrl: PUBLIC_BASE_URL,
+    maxPhotosPerListing: MAX_PHOTOS_PER_LISTING,
+    reverificationIntervalDays: EMAIL_REVERIFICATION_INTERVAL_DAYS,
+  });
 });
 
 app.use("/auth", authRouter);

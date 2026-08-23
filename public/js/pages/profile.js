@@ -1,23 +1,47 @@
-import { api, requireUser, logout, getConfig, buildInviteMailto, initials, CONDITION_LABELS, CONDITION_BADGE_CLASSES, categoryBadgeClass, escapeHtml } from "../api.js";
+import {
+  api,
+  requireUser,
+  logout,
+  getConfig,
+  buildInviteMailto,
+  initials,
+  escapeHtml,
+} from "../api.js";
+import {
+  mountNav,
+  mountViewToggle,
+  renderEmailBanner,
+  listingCardHtml,
+  icon,
+} from "../ui.js";
+
+mountNav("profile");
 
 const user = await requireUser();
 
 document.getElementById("avatar").textContent = initials(user.displayName);
 document.getElementById("display-name").textContent = user.displayName;
 document.getElementById("email").textContent = user.email;
-document.getElementById("role-badge").textContent = user.role === "admin" ? "Administrateur" : "Étudiant·e";
+document.getElementById("role-badge").textContent =
+  user.role === "admin" ? "Administrateur" : "Étudiant·e";
 
-document.getElementById("logout-btn").addEventListener("click", () => logout());
+const logoutBtn = document.getElementById("logout-btn");
+logoutBtn.innerHTML = icon("logout");
+logoutBtn.addEventListener("click", () => logout());
 
-// QR code du profil (genere par l'API, domaine via variable d'environnement).
+renderEmailBanner(user, document.getElementById("account-banner"));
+
+// QR code du profil : genere par l'API, qui encode PUBLIC_BASE_URL — le code
+// scanne depuis un telephone doit ouvrir le site public, pas un localhost.
 document.getElementById("qr-img").src = `/users/${user.id}/qr`;
 
-// Partage du profil (Web Share si dispo, sinon copie du lien) + invitation.
 const { publicBaseUrl } = await getConfig();
 const profileUrl = `${publicBaseUrl}/u.html?id=${user.id}`;
+document.getElementById("profile-url").textContent = profileUrl;
 document.getElementById("invite-btn").href = buildInviteMailto(publicBaseUrl);
 
-document.getElementById("share-btn").addEventListener("click", async () => {
+document.getElementById("share-btn").addEventListener("click", async (event) => {
+  const btn = event.currentTarget;
   if (navigator.share) {
     try {
       await navigator.share({ title: "Mon profil HEIG-Échange", url: profileUrl });
@@ -28,7 +52,10 @@ document.getElementById("share-btn").addEventListener("click", async () => {
   }
   try {
     await navigator.clipboard.writeText(profileUrl);
-    alert("Lien du profil copié !");
+    btn.textContent = "Lien copié !";
+    setTimeout(() => {
+      btn.textContent = "Copier le lien";
+    }, 2000);
   } catch {
     prompt("Copiez le lien de votre profil :", profileUrl);
   }
@@ -45,49 +72,40 @@ try {
   document.getElementById("friends-count").textContent = "0";
 }
 
+// ---------------------------------------------------------------------------
+// Mes annonces
+// ---------------------------------------------------------------------------
+
 const listingsEl = document.getElementById("my-listings");
+let viewMode = "grid";
+let myListings = [];
 
-function myListingCard(listing) {
-  const badgeClass = categoryBadgeClass(listing.categoryId);
-  const conditionClass = CONDITION_BADGE_CLASSES[listing.itemCondition] ?? "bg-gray-50 text-gray-700";
-  const conditionLabel = CONDITION_LABELS[listing.itemCondition] ?? listing.itemCondition;
-  const photo = listing.photoUrl
-    ? `<img src="${escapeHtml(listing.photoUrl)}" alt="${escapeHtml(listing.title)}" class="w-full h-full object-cover" loading="lazy" />`
-    : `<div class="w-full h-full flex items-center justify-center text-3xl text-mutedfg">📦</div>`;
-
+/**
+ * Reprend la carte partagee et lui superpose les actions du proprietaire
+ * (modifier / retirer), qui n'existent que sur cette page.
+ */
+function ownerCard(listing) {
   const wrapper = document.createElement("div");
-  wrapper.className = "bg-white border border-appfg/10 rounded-2xl overflow-hidden relative";
-  wrapper.innerHTML = `
-    <a href="listing.html?id=${listing.id}" class="block">
-      <div class="relative h-32 bg-mutedbg">
-        ${photo}
-        ${listing.categoryLabel ? `<span class="absolute top-2 left-2 text-[11px] font-semibold px-2 py-0.5 rounded-full border ${badgeClass}">${escapeHtml(listing.categoryLabel)}</span>` : ""}
-      </div>
-      <div class="p-3">
-        <p class="text-sm font-bold leading-snug">${escapeHtml(listing.title)}</p>
-        <div class="flex items-center justify-between mt-2">
-          <span class="text-[11px] text-mutedfg">${listing.status === "closed" ? "Retirée" : "En ligne"}</span>
-          <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full ${conditionClass}">${conditionLabel}</span>
-        </div>
-      </div>
-    </a>
-    <button type="button" data-id="${listing.id}" title="Retirer l'annonce"
-            class="delete-btn absolute top-2 right-2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition-colors">
-      🗑
-    </button>
-  `;
+  wrapper.className = "relative";
+  wrapper.innerHTML = listingCardHtml(listing, viewMode);
 
-  wrapper.querySelector(".delete-btn").addEventListener("click", async (e) => {
+  const actions = document.createElement("div");
+  actions.className = "absolute top-2 right-2 flex gap-1.5";
+  actions.innerHTML = `
+    <a href="edit-listing.html?id=${listing.id}" title="Modifier l'annonce" aria-label="Modifier l'annonce"
+       class="w-8 h-8 rounded-full bg-black/55 hover:bg-black/75 text-white flex items-center justify-center transition-colors">${icon("edit")}</a>
+    <button type="button" data-delete title="Retirer l'annonce" aria-label="Retirer l'annonce"
+            class="w-8 h-8 rounded-full bg-black/55 hover:bg-red-600 text-white flex items-center justify-center transition-colors">${icon("trash")}</button>
+  `;
+  wrapper.appendChild(actions);
+
+  actions.querySelector("[data-delete]").addEventListener("click", async (e) => {
     e.preventDefault();
     if (!confirm("Retirer cette annonce ?")) return;
     try {
       await api.del(`/listings/${listing.id}`);
-      wrapper.remove();
-      const activeEl = document.getElementById("active-count");
-      activeEl.textContent = String(Math.max(0, Number(activeEl.textContent) - 1));
-      if (!listingsEl.children.length) {
-        listingsEl.innerHTML = `<p class="text-center text-sm text-mutedfg py-6">Vous n'avez pas encore publié d'annonce.</p>`;
-      }
+      myListings = myListings.filter((l) => l.id !== listing.id);
+      renderListings();
     } catch (err) {
       alert(err.message);
     }
@@ -96,22 +114,38 @@ function myListingCard(listing) {
   return wrapper;
 }
 
-async function loadMyListings() {
-  try {
-    const listings = await api.get(`/listings?ownerId=${user.id}`);
-    listingsEl.innerHTML = "";
-    document.getElementById("active-count").textContent = String(listings.length);
+function renderListings() {
+  listingsEl.className = `listing-grid${viewMode === "compact" ? " is-compact" : ""}`;
+  listingsEl.innerHTML = "";
 
-    if (listings.length === 0) {
-      listingsEl.innerHTML = `<p class="text-center text-sm text-mutedfg py-6">Vous n'avez pas encore publié d'annonce.</p>`;
-      return;
-    }
-    for (const listing of listings) {
-      listingsEl.appendChild(myListingCard(listing));
-    }
-  } catch (err) {
-    listingsEl.innerHTML = `<p class="text-center text-sm text-red-600 py-6">${escapeHtml(err.message)}</p>`;
+  document.getElementById("active-count").textContent = String(myListings.length);
+
+  if (myListings.length === 0) {
+    listingsEl.innerHTML = `
+      <div class="col-span-full text-center py-10 border border-dashed border-appfg/15 rounded-2xl">
+        <p class="text-sm text-mutedfg">Vous n'avez pas encore publié d'annonce.</p>
+        <a href="add-listing.html" class="inline-block mt-3 text-sm font-bold text-brand hover:underline">Mettre un objet à disposition</a>
+      </div>`;
+    return;
+  }
+
+  for (const listing of myListings) {
+    listingsEl.appendChild(ownerCard(listing));
   }
 }
 
-loadMyListings();
+async function loadMyListings() {
+  try {
+    myListings = await api.get(`/listings?ownerId=${user.id}`);
+    renderListings();
+  } catch (err) {
+    listingsEl.innerHTML = `<p class="col-span-full text-center text-sm text-red-600 py-6">${escapeHtml(err.message)}</p>`;
+  }
+}
+
+viewMode = mountViewToggle(document.getElementById("view-toggle"), (mode) => {
+  viewMode = mode;
+  renderListings();
+});
+
+await loadMyListings();

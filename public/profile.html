@@ -8,116 +8,94 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
-<script>
-  tailwind.config = {
-    theme: {
-      extend: {
-        colors: {
-          brand: { DEFAULT: '#c8102e', dark: '#a30d25', light: '#f9e4e7' },
-          appbg: '#f5f4f0', appfg: '#1a1816',
-          secondarybg: '#f0ede8', mutedbg: '#e8e5e0', mutedfg: '#7a7670',
-        },
-        fontFamily: { sans: ['"Plus Jakarta Sans"', '-apple-system', 'sans-serif'] },
-      },
-    },
-  }
-</script>
+<script src="js/tailwind-setup.js"></script>
 <link rel="stylesheet" href="css/app.css" />
-<style>body { font-family: 'Plus Jakarta Sans', sans-serif; }</style>
 </head>
-<body class="bg-mutedbg text-appfg antialiased">
+<body class="text-appfg antialiased">
+
+<nav class="side-nav" aria-label="Navigation principale"></nav>
 
 <div class="app-shell">
-  <header class="flex-shrink-0 px-4 pt-5 pb-4 bg-white border-b border-appfg/10">
-    <div class="flex items-center justify-between mb-4">
-      <h1 class="text-2xl font-extrabold">Mon profil</h1>
-      <button type="button" id="logout-btn" title="Se déconnecter"
-              class="w-9 h-9 rounded-full bg-secondarybg border border-appfg/10 flex items-center justify-center">↪</button>
-    </div>
-    <div class="flex items-center gap-3">
-      <div id="avatar" class="w-14 h-14 rounded-full bg-brand text-white text-xl font-bold flex items-center justify-center flex-shrink-0"></div>
-      <div class="min-w-0">
-        <p id="display-name" class="font-extrabold text-lg leading-tight truncate"></p>
-        <p id="email" class="text-sm text-mutedfg truncate"></p>
-        <span id="role-badge" class="inline-block mt-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-secondarybg text-mutedfg"></span>
-      </div>
+  <header class="flex-shrink-0 bg-white border-b border-appfg/10 sticky top-0 z-20">
+    <div class="app-container py-3 flex items-center gap-3">
+      <h1 class="text-lg font-extrabold">Mon profil</h1>
+      <button id="logout-btn" type="button" title="Se déconnecter" aria-label="Se déconnecter"
+              class="ml-auto w-9 h-9 rounded-full bg-secondarybg flex items-center justify-center text-mutedfg hover:text-appfg transition-colors"></button>
     </div>
   </header>
 
-  <main class="flex-1 overflow-y-auto px-4 py-4 space-y-4 pb-24">
-    <div class="bg-secondarybg border border-appfg/10 rounded-xl px-4 py-3 flex items-center gap-3">
-      <div class="w-9 h-9 rounded-lg bg-mutedbg flex items-center justify-center text-lg flex-shrink-0">💬</div>
-      <div class="text-sm">
-        <p class="font-bold">Contact via Teams</p>
-        <p class="text-xs text-mutedfg">Bientôt disponible — Pas de canal de contact intégré.</p>
-      </div>
-    </div>
+  <main class="app-main">
+    <div class="app-container pt-4">
+      <div id="account-banner"></div>
 
-    <div class="grid grid-cols-2 gap-3">
-      <div class="bg-white border border-appfg/10 rounded-xl px-4 py-4">
-        <p id="active-count" class="text-2xl font-extrabold">0</p>
-        <p class="text-xs text-mutedfg mt-1">Annonces actives</p>
-      </div>
+      <!-- Deux colonnes sur desktop : carte d'identite + QR a gauche, annonces
+           a droite. Empile sur mobile. -->
+      <div class="grid gap-5 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] lg:gap-8 items-start">
 
-      <!-- 
-      <a href="priority-friends.html" class="bg-white border border-appfg/10 rounded-xl px-4 py-4 flex items-center justify-between hover:border-brand/40 transition-colors">
-        <div>
-          <p id="friends-count" class="text-2xl font-extrabold">0</p>
-          <p class="text-xs text-mutedfg mt-1">Amis prioritaires</p>
-        </div>
-        <span class="text-mutedfg">›</span>
-      </a>
-      -->
+        <aside class="space-y-4 lg:sticky lg:top-24">
+          <section class="bg-white border border-appfg/10 rounded-2xl p-5">
+            <div class="flex items-center gap-4">
+              <span id="avatar" class="w-16 h-16 rounded-full bg-brand text-white text-xl font-bold flex items-center justify-center flex-shrink-0"></span>
+              <div class="min-w-0">
+                <p id="display-name" class="text-lg font-extrabold truncate"></p>
+                <p id="email" class="text-xs text-mutedfg font-mono truncate"></p>
+                <span id="role-badge" class="inline-block mt-1.5 text-[11px] font-semibold bg-secondarybg text-mutedfg rounded-full px-2.5 py-0.5"></span>
+              </div>
+            </div>
 
-    </div>
+            <div class="grid grid-cols-2 gap-3 mt-5">
+              <div class="border border-appfg/10 rounded-xl px-3 py-3">
+                <p id="active-count" class="text-2xl font-extrabold">—</p>
+                <p class="text-xs text-mutedfg">Objets en ligne</p>
+              </div>
+              <a href="priority-friends.html" class="border border-appfg/10 rounded-xl px-3 py-3 hover:border-brand/40 transition-colors">
+                <p id="friends-count" class="text-2xl font-extrabold">0</p>
+                <p class="text-xs text-mutedfg">Amis prioritaires</p>
+              </a>
+            </div>
+          </section>
 
-    <div class="bg-white border border-appfg/10 rounded-xl p-4">
-      <div class="flex items-center gap-4">
-        <img id="qr-img" alt="QR code de mon profil"
-             class="w-24 h-24 rounded-lg border border-appfg/10 bg-white flex-shrink-0" />
-        <div class="min-w-0">
-          <p class="font-bold text-sm">Mon QR code</p>
-          <p class="text-xs text-mutedfg mt-0.5">Partagez votre profil : un scan ouvre vos annonces.</p>
-          <div class="flex flex-wrap gap-2 mt-2">
-            <button id="share-btn" type="button"
-                    class="text-xs font-bold px-3 py-1.5 rounded-full bg-brand text-white hover:bg-brand-dark transition-colors">
-              Partager mon profil
-            </button>
-            <a id="invite-btn" href="#"
-               class="text-xs font-bold px-3 py-1.5 rounded-full border border-appfg/15 hover:bg-secondarybg transition-colors">
-              ✉️ Inviter un ami
-            </a>
+          <!-- Partage du profil : QR code et lien, tous deux construits sur le
+               domaine public (PUBLIC_BASE_URL) et non sur l'URL du navigateur. -->
+          <section class="bg-white border border-appfg/10 rounded-2xl p-5 text-center">
+            <h2 class="text-sm font-extrabold mb-3">Partager mon profil</h2>
+            <img id="qr-img" alt="QR code de mon profil"
+                 class="w-36 h-36 mx-auto rounded-xl border border-appfg/10" />
+            <p id="profile-url" class="text-[11px] text-mutedfg mt-2 break-all"></p>
+            <div class="flex flex-col sm:flex-row gap-2 mt-4">
+              <button id="share-btn" type="button"
+                      class="flex-1 text-sm font-bold border border-appfg/15 rounded-xl py-2.5 hover:bg-secondarybg transition-colors">
+                Copier le lien
+              </button>
+              <a id="invite-btn" href="#"
+                 class="flex-1 text-sm font-bold bg-brand hover:bg-brand-dark text-white rounded-xl py-2.5 transition-colors">
+                Inviter par email
+              </a>
+            </div>
+          </section>
+        </aside>
+
+        <section>
+          <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
+            <h2 class="text-lg font-extrabold">Mes objets</h2>
+            <div class="flex items-center gap-2">
+              <div id="view-toggle" class="hidden md:flex"></div>
+              <a href="add-listing.html"
+                 class="inline-flex items-center gap-1.5 text-sm font-bold bg-brand hover:bg-brand-dark text-white rounded-xl px-4 py-2.5 transition-colors">
+                + Mettre à disposition
+              </a>
+            </div>
           </div>
-        </div>
-      </div>
-    </div>
 
-    <div>
-      <div class="flex items-center justify-between mb-3">
-        <h2 class="font-extrabold">Mes objets</h2>
-        <a href="add-listing.html" class="inline-flex items-center gap-1.5 bg-brand hover:bg-brand-dark text-white text-sm font-bold rounded-full px-3.5 py-2 transition-colors">
-          <span>+</span> Mettre à disposition
-        </a>
-      </div>
-      <div id="my-listings" class="space-y-3">
-        <p class="text-center text-sm text-mutedfg py-6">Chargement…</p>
+          <div id="my-listings" class="listing-grid">
+            <p class="col-span-full text-center text-sm text-mutedfg py-8">Chargement…</p>
+          </div>
+        </section>
       </div>
     </div>
   </main>
 
-  <nav class="flex-shrink-0 h-16 bg-white border-t border-appfg/10 flex items-stretch px-2 sticky bottom-0">
-    <a href="index.html" class="flex-1 flex flex-col items-center justify-center gap-1 text-mutedfg">
-      <span class="text-lg leading-none">▦</span>
-      <span class="text-[11px] font-bold">Accueil</span>
-    </a>
-    <a href="add-listing.html" class="flex-1 flex items-center justify-center">
-      <span class="w-12 h-12 -mt-5 rounded-full bg-brand shadow-lg flex items-center justify-center text-white text-2xl font-bold">+</span>
-    </a>
-    <a href="profile.html" class="flex-1 flex flex-col items-center justify-center gap-1 text-brand">
-      <span class="text-lg leading-none">◯</span>
-      <span class="text-[11px] font-bold">Profil</span>
-    </a>
-  </nav>
+  <nav class="bottom-nav" aria-label="Navigation principale"></nav>
 </div>
 
 <script type="module" src="js/pages/profile.js"></script>

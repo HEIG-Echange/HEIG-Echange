@@ -8,69 +8,74 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
-<script>
-  tailwind.config = {
-    theme: {
-      extend: {
-        colors: {
-          brand: { DEFAULT: '#c8102e', dark: '#a30d25', light: '#f9e4e7' },
-          appbg: '#f5f4f0', appfg: '#1a1816',
-          secondarybg: '#f0ede8', mutedbg: '#e8e5e0', mutedfg: '#7a7670',
-        },
-        fontFamily: { sans: ['"Plus Jakarta Sans"', '-apple-system', 'sans-serif'] },
-      },
-    },
-  }
-</script>
+<script src="js/tailwind-setup.js"></script>
 <link rel="stylesheet" href="css/app.css" />
-<style>:root { --appbg: #f5f4f0; } body { font-family: 'Plus Jakarta Sans', sans-serif; }</style>
 </head>
-<body class="bg-mutedbg text-appfg antialiased">
+<body class="text-appfg antialiased">
+
+<!-- Barre laterale : tablette et desktop uniquement (voir css/app.css). -->
+<nav class="side-nav" aria-label="Navigation principale"></nav>
 
 <div class="app-shell">
-  <!-- Header -->
-  <header class="flex-shrink-0 px-4 pt-4 pb-3 bg-white border-b border-appfg/10">
-    <div class="flex items-center justify-between mb-3">
-      <div>
-        <p class="text-xs text-mutedfg font-semibold">HEIG-VD</p>
-        <h1 class="text-2xl font-extrabold text-appfg tracking-tight -mt-0.5">Échange</h1>
+  <!-- En-tete. Sur mobile il porte le titre et la recherche ; sur desktop il
+       devient une barre fine avec recherche large et acces au compte. -->
+  <header class="flex-shrink-0 bg-white border-b border-appfg/10 sticky top-0 z-20">
+    <div class="app-container py-3 md:py-4">
+      <div class="flex items-center gap-3">
+        <div class="md:hidden">
+          <p class="text-xs text-mutedfg font-semibold">HEIG-VD</p>
+          <h1 class="text-2xl font-extrabold tracking-tight -mt-0.5">Échange</h1>
+        </div>
+
+        <h1 class="hidden md:block text-xl font-extrabold flex-shrink-0">Annonces</h1>
+
+        <div class="relative flex-1 min-w-0 hidden md:block">
+          <span id="search-icon-desktop" class="absolute left-3 top-1/2 -translate-y-1/2 text-mutedfg"></span>
+          <input id="search-input-desktop" type="search" placeholder="Rechercher un objet, un livre, un meuble…"
+                 class="w-full bg-secondarybg border border-appfg/10 rounded-xl pl-10 pr-3 py-2.5 text-sm placeholder:text-mutedfg focus:outline-none focus:ring-2 focus:ring-brand/30" />
+        </div>
+
+        <div class="ml-auto flex items-center gap-2">
+          <a id="invite-btn" href="#" title="Inviter un ami par email" aria-label="Inviter un ami par email"
+             class="w-9 h-9 rounded-full bg-secondarybg border border-appfg/10 flex items-center justify-center text-mutedfg hover:text-appfg transition-colors"></a>
+          <div id="account-chip" class="hidden md:block"></div>
+        </div>
       </div>
-      <a id="invite-btn" href="#" title="Inviter un ami par email"
-         class="w-9 h-9 rounded-full bg-secondarybg border border-appfg/10 flex items-center justify-center text-base">
-        ✉️
-      </a>
+
+      <!-- Recherche mobile : sous le titre, pleine largeur. -->
+      <div class="relative mt-3 md:hidden">
+        <span id="search-icon-mobile" class="absolute left-3 top-1/2 -translate-y-1/2 text-mutedfg"></span>
+        <input id="search-input-mobile" type="search" placeholder="Rechercher…"
+               class="w-full bg-secondarybg border border-appfg/10 rounded-xl pl-10 pr-3 py-2.5 text-sm placeholder:text-mutedfg focus:outline-none focus:ring-2 focus:ring-brand/30" />
+      </div>
     </div>
-    <div class="relative">
-      <span class="absolute left-3 top-1/2 -translate-y-1/2 text-mutedfg">🔍</span>
-      <input id="search-input" type="search" placeholder="Rechercher…"
-             class="w-full bg-secondarybg border border-appfg/10 rounded-xl pl-9 pr-3 py-2.5 text-sm placeholder:text-mutedfg focus:outline-none focus:ring-2 focus:ring-brand/30" />
+
+    <!-- Onglets categories : defilement horizontal sur mobile, retour a la
+         ligne sur grand ecran (tout tient, pas besoin de scroller). -->
+    <div class="app-container">
+      <nav id="category-tabs" class="flex gap-2 pb-3 overflow-x-auto no-scrollbar lg:flex-wrap lg:overflow-visible text-sm font-bold"
+           aria-label="Filtrer par catégorie"></nav>
     </div>
   </header>
 
-  <!-- Onglets categories -->
-  <nav id="category-tabs" class="flex-shrink-0 flex gap-2 px-4 py-3 overflow-x-auto no-scrollbar bg-white border-b border-appfg/10 text-sm font-bold">
-    <!-- rempli par home.js -->
-  </nav>
+  <main class="app-main">
+    <div class="app-container pt-4">
+      <div id="account-banner"></div>
 
-  <!-- Grille des annonces -->
-  <main id="listings-grid" class="flex-1 overflow-y-auto px-4 py-3 space-y-3 pb-24">
-    <p class="text-center text-sm text-mutedfg py-10">Chargement…</p>
+      <div class="flex items-center justify-between gap-3 mb-3">
+        <p id="results-count" class="text-sm text-mutedfg" aria-live="polite"></p>
+        <!-- La bascule d'affichage n'apparait qu'a partir de la tablette :
+             sur telephone il n'y a de la place que pour une colonne. -->
+        <div id="view-toggle" class="hidden md:flex"></div>
+      </div>
+
+      <div id="listings-grid" class="listing-grid">
+        <p class="col-span-full text-center text-sm text-mutedfg py-10">Chargement…</p>
+      </div>
+    </div>
   </main>
 
-  <!-- Nav du bas -->
-  <nav class="flex-shrink-0 h-16 bg-white border-t border-appfg/10 flex items-stretch px-2 sticky bottom-0">
-    <a href="index.html" class="flex-1 flex flex-col items-center justify-center gap-1 text-brand">
-      <span class="text-lg leading-none">▦</span>
-      <span class="text-[11px] font-bold">Accueil</span>
-    </a>
-    <a href="add-listing.html" class="flex-1 flex items-center justify-center">
-      <span class="w-12 h-12 -mt-5 rounded-full bg-brand shadow-lg flex items-center justify-center text-white text-2xl font-bold">+</span>
-    </a>
-    <a href="profile.html" class="flex-1 flex flex-col items-center justify-center gap-1 text-mutedfg">
-      <span class="text-lg leading-none">◯</span>
-      <span class="text-[11px] font-bold">Profil</span>
-    </a>
-  </nav>
+  <nav class="bottom-nav" aria-label="Navigation principale"></nav>
 </div>
 
 <script type="module" src="js/pages/home.js"></script>
