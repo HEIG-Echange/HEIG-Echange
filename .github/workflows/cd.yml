@@ -48,6 +48,17 @@ jobs:
   #
   # deploy_path n'est qu'un defaut de repli : si le secret d'environnement
   # DEPLOY_PATH est defini (recommande, une valeur par environnement), il gagne.
+  deva:
+    needs: verify
+    if: >-
+      (github.event_name == 'push' && github.ref_name == 'deva')
+      || (github.event_name == 'workflow_dispatch' && inputs.environment == 'deva')
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: deva
+      deploy_path: /home/heigdeploy/heig/deva-pdg
+    secrets: inherit
+
   staging:
     needs: verify
     if: >-
