@@ -7,6 +7,13 @@ import {
   EMAIL_REVERIFICATION_INTERVAL_DAYS,
 } from "../auth/emailVerification";
 import { runEmailReverificationSweep } from "../jobs/emailReverification";
+import {
+  defaultAiSettings,
+  readAiOverrides,
+  setAiSetting,
+  type AiSettingKey,
+} from "../aiSettings";
+import { aiConfigured } from "../ai";
 
 export const adminRouter = Router();
 adminRouter.use(requireAdmin);
@@ -353,4 +360,68 @@ adminRouter.get("/suspended-accounts", async (_req, res) => {
 adminRouter.post("/jobs/email-reverification", async (_req, res) => {
   const result = await runEmailReverificationSweep();
   res.json(result);
+});
+
+// ---------------------------------------------------------------------------
+// Reglages de l'analyse IA des photos
+//
+// Les prompts envoyes au modele Hugging Face sont modifiables en ligne par un
+// administrateur (page /admin-ai.html) : pas besoin de redeployer pour ajuster
+// la formulation ou changer de modele. Voir src/aiSettings.ts pour l'ordre de
+// precedence base > environnement > defaut du code.
+// ---------------------------------------------------------------------------
+
+// GET /admin/ai-settings — valeurs effectives, defauts, et ce qui est surcharge
+// en base (pour que l'interface puisse afficher "personnalise" / "par defaut").
+adminRouter.get("/ai-settings", async (_req, res) => {
+  const defaults = defaultAiSettings();
+  const overrides = await readAiOverrides();
+
+  res.json({
+    provider: "huggingface",
+    configured: aiConfigured(),
+    effective: { ...defaults, ...overrides },
+    defaults,
+    overridden: {
+      model: overrides.model !== undefined,
+      systemPrompt: overrides.systemPrompt !== undefined,
+      userPrompt: overrides.userPrompt !== undefined,
+    },
+    // Rappeles ici pour que la page d'edition puisse les documenter sans les
+    // reecrire de son cote.
+    placeholders: ["{{categories}}", "{{conditions}}"],
+  });
+});
+
+// PUT /admin/ai-settings — enregistre les reglages. Un champ absent est laisse
+// tel quel ; un champ a null (ou vide) efface la surcharge et fait revenir la
+// valeur par defaut.
+adminRouter.put("/ai-settings", async (req, res) => {
+  const body = (req.body ?? {}) as Record<string, unknown>;
+
+  const FIELDS: { field: string; key: AiSettingKey }[] = [
+    { field: "model", key: "ai.model" },
+    { field: "systemPrompt", key: "ai.system_prompt" },
+    { field: "userPrompt", key: "ai.user_prompt" },
+  ];
+
+  for (const { field } of FIELDS) {
+    const value = body[field];
+    if (value === undefined || value === null) continue;
+    if (typeof value !== "string") {
+      res.status(400).json({ error: `${field} doit etre une chaine ou null` });
+      return;
+    }
+  }
+
+  for (const { field, key } of FIELDS) {
+    const value = body[field];
+    if (value === undefined) continue;
+    const trimmed = typeof value === "string" ? value.trim() : null;
+    await setAiSetting(key, trimmed ? trimmed : null, req.session.userId);
+  }
+
+  const defaults = defaultAiSettings();
+  const overrides = await readAiOverrides();
+  res.json({ effective: { ...defaults, ...overrides }, defaults });
 });

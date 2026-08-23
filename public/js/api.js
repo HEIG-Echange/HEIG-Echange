@@ -55,6 +55,7 @@ export const api = {
   get: (path) => request("GET", path),
   post: (path, body) => request("POST", path, body),
   patch: (path, body) => request("PATCH", path, body),
+  put: (path, body) => request("PUT", path, body),
   del: (path, body) => request("DELETE", path, body),
   upload,
 };
@@ -74,6 +75,13 @@ export function getConfig() {
     configPromise = api.get("/config").catch(() => ({
       publicBaseUrl: window.location.origin,
       maxPhotosPerListing: 10,
+      maxPhotoSizeBytes: 5 * 1024 * 1024,
+      acceptedPhotoMimeTypes: [
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+        "image/gif",
+      ],
       reverificationIntervalDays: 180,
     }));
   }
@@ -137,6 +145,28 @@ export function buildContactMailto(listing, shareUrl) {
     "Est-elle toujours disponible ?\n\n" +
     `${shareUrl}\n\nMerci !`;
   return `mailto:${listing.ownerEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+// Lien profond Teams ouvrant une conversation avec le donneur, message
+// pré-rempli. Teams n'expose pas de nom d'utilisateur public : l'adresse
+// e-mail est l'identifiant utilisé par le lien, et c'est justement celui que
+// l'API renvoie (`ownerEmail`). Comme tout le monde ici est sur le même
+// annuaire (@heig-vd.ch / @hes-so.ch), Teams retrouve la personne et ouvre le
+// chat directement.
+//
+// Le lien s'ouvre dans Teams web ; si le client lourd est installé, c'est lui
+// qui prend la main. Si l'adresse est absente (visiteur non connecté, l'API ne
+// l'expose alors pas), on renvoie null et l'appelant n'affiche pas le bouton.
+export function buildTeamsChatUrl(listing, shareUrl) {
+  if (!listing.ownerEmail) return null;
+  const message =
+    `Bonjour ${listing.ownerName ?? ""}, je suis intéressé·e par « ${listing.title} » ` +
+    `sur HEIG-Échange. Est-il toujours disponible ? ${shareUrl}`;
+  return (
+    "https://teams.microsoft.com/l/chat/0/0" +
+    `?users=${encodeURIComponent(listing.ownerEmail)}` +
+    `&message=${encodeURIComponent(message)}`
+  );
 }
 
 // ---------------------------------------------------------------------------

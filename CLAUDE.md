@@ -28,7 +28,7 @@ Le prof veut que tout le monde parle à la présentation (~5 min chacun). Rappel
 - **Base de données :** MariaDB 11.4 (LTS), tourne uniquement dans Docker (pas de serveur SQL sur l'hôte), administrée via **phpMyAdmin** (jamais exposé sur Internet — accès admin via tunnel SSH)
 - **Frontend applicatif :** pages HTML statiques + modules ES servis depuis `public/` par Express (pas de framework, pas de bundler), Tailwind par CDN. Responsive mobile / tablette / desktop — voir `docs/frontend.md`.
 - **Emails :** service HTTP interne (`src/mail.ts`, variables `MAILER_*`). Sert la confirmation d'adresse à l'inscription et la reconfirmation semestrielle. Gabarits dans `src/mailTemplates.ts`.
-- **IA (optionnelle) :** analyse d'une photo d'objet pour pré-remplir le formulaire (`src/ai.ts`, `ANTHROPIC_API_KEY`). Absente ⇒ l'endpoint répond 503, le reste fonctionne.
+- **IA (optionnelle) :** analyse d'une photo d'objet pour pré-remplir le formulaire, via l'API **Hugging Face** (`src/ai.ts`, jeton `HUGGINGFACE_API_KEY`). Absent ⇒ l'endpoint répond 503, le reste fonctionne. Modèle et prompts stockés en base (`app_settings`, `src/aiSettings.ts`) et modifiables par un admin depuis `public/admin-ai.html` sans redéploiement.
 - **Tests :** Vitest + Supertest. Les tests de routes remplacent le pool MySQL par un faux pool piloté par motif SQL (`test/support/mockPool.ts`) : la CI n'a pas besoin d'une base.
 - **Lint :** ESLint (config flat)
 - **CI :** GitHub Actions — lint, tests, build, `npm audit`, build de l'image Docker cible `verify`
@@ -72,7 +72,7 @@ Le prof veut que tout le monde parle à la présentation (~5 min chacun). Rappel
 ├── src/
 │   ├── app.ts, server.ts
 │   ├── config.ts               # PUBLIC_BASE_URL, absoluteUrl(), UPLOAD_DIR
-│   ├── db.ts, mail.ts, mailTemplates.ts, ai.ts, upload.ts
+│   ├── db.ts, mail.ts, mailTemplates.ts, ai.ts, aiSettings.ts, upload.ts
 │   ├── auth/{validateEmail,emailVerification}.ts
 │   ├── jobs/emailReverification.ts
 │   ├── middleware/{requireAuth,requireAdmin}.ts
@@ -83,7 +83,7 @@ Le prof veut que tout le monde parle à la présentation (~5 min chacun). Rappel
 
 ## 4. Base de données — résumé du schéma
 
-Voir `docs/base-de-donnees.md` pour le détail complet (accès phpMyAdmin, export/import, migrations). Tables : `users` (email `@hes-so.ch`/`@heig-vd.ch` vérifié par CHECK, rôle user/admin, soft delete, confirmation d'adresse), `categories`, `listings` (statut available/reserved/closed, recherche FULLTEXT), `listing_photos` (carrousel), `listing_interests` (« je suis intéressé »), `messages` (contact donneur↔intéressé), `reports` + `moderation_logs` (signalement et historique de modération).
+Voir `docs/base-de-donnees.md` pour le détail complet (accès phpMyAdmin, export/import, migrations). Tables : `users` (email `@hes-so.ch`/`@heig-vd.ch` vérifié par CHECK, rôle user/admin, soft delete, confirmation d'adresse), `categories`, `listings` (statut available/reserved/closed, recherche FULLTEXT), `listing_photos` (carrousel), `listing_interests` (« je suis intéressé »), `messages` (contact donneur↔intéressé), `reports` + `moderation_logs` (signalement et historique de modération), `app_settings` (réglages admin clé/valeur : modèle et prompts IA).
 
 **À savoir avant de toucher au schéma :** `db/init/*.sql` n'est joué qu'au tout premier démarrage (volume vide). Sur une base déjà peuplée, il faut écrire une migration dans `db/migrations/` **et** mettre `01-schema.sql` à jour pour les installations neuves — les deux, sinon les deux chemins divergent.
 
@@ -119,8 +119,8 @@ Voir `docs/base-de-donnees.md` pour le détail complet (accès phpMyAdmin, expor
 - Ajouter la section équipe/rôles dans `docs/processus-travail.md` (annoncée par l'index mais absente)
 - Nettoyer `cd.yml` (un ancien job `deploy` basé sur Render/GHCR traîne encore sous le nouveau système staging/prod — a priori mort mais pas supprimé) et le fichier vide `fick` à la racine
 - SSO Microsoft (prévu au départ, non implémenté : l'auth actuelle est email + mot de passe)
-- Groupes d'« amis prioritaires » : l'écran existe mais ne persiste qu'en `localStorage`, rien côté API/base
-- Table `messages` présente en base mais aucun endpoint : le contact passe aujourd'hui par un `mailto:`
+- Table `messages` présente en base mais aucun endpoint : le contact passe aujourd'hui par un lien profond **Teams** (`https://teams.microsoft.com/l/chat/0/0?users=<email>`) avec un `mailto:` en secours
+- Groupes d'« amis prioritaires » : retirés du frontend (aucun endpoint ni table côté API) — la landing page les annonce encore comme fonctionnalité à venir
 - Tests automatisés du frontend (aucun environnement DOM en CI — voir la section « Limites connues » de `docs/frontend.md`)
 
 ## 7. Plan proposé semaines 2–4 (à valider avec l'équipe, rôles pas confirmés)
