@@ -1,0 +1,17 @@
+meta {
+  name: 23 Verify Listing Deleted (Flow)
+  type: http
+  seq: 23
+}
+
+get {
+  url: {{baseUrl}}/listings/{{flowListingId}}
+  body: none
+  auth: none
+}
+
+tests {
+  test("renvoie 404, l'annonce est bien supprimee", function () {
+    expect(res.getStatus()).to.equal(404);
+  });
+}

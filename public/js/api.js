@@ -18,6 +18,11 @@ async function request(method, path, body) {
   if (!res.ok) {
     const error = new Error(data?.error ?? `Erreur ${res.status}`);
     error.status = res.status;
+    // Code machine renvoye par l'API (EMAIL_NOT_VERIFIED,
+    // EMAIL_REVERIFICATION_REQUIRED…) : permet d'aiguiller vers la bonne page
+    // sans dependre du texte du message.
+    error.code = data?.code ?? null;
+    error.data = data ?? null;
     throw error;
   }
 
@@ -26,9 +31,9 @@ async function request(method, path, body) {
 
 // Envoi multipart (upload de fichier). N'ajoute pas de Content-Type : le
 // navigateur pose lui-meme le boundary a partir du FormData.
-async function upload(path, formData) {
+async function upload(path, formData, method = "POST") {
   const res = await fetch(path, {
-    method: "POST",
+    method,
     credentials: "include",
     body: formData,
   });
@@ -39,6 +44,8 @@ async function upload(path, formData) {
   if (!res.ok) {
     const error = new Error(data?.error ?? `Erreur ${res.status}`);
     error.status = res.status;
+    error.code = data?.code ?? null;
+    error.data = data ?? null;
     throw error;
   }
   return data;
@@ -47,21 +54,43 @@ async function upload(path, formData) {
 export const api = {
   get: (path) => request("GET", path),
   post: (path, body) => request("POST", path, body),
-  del: (path) => request("DELETE", path),
+  patch: (path, body) => request("PATCH", path, body),
+  del: (path, body) => request("DELETE", path, body),
   upload,
 };
 
-// Config publique (memo). Sert notamment a construire les liens de partage et
-// d'invitation avec le bon domaine.
+// ---------------------------------------------------------------------------
+// Configuration publique
+// ---------------------------------------------------------------------------
+
+// Memoisee : une seule requete /config par chargement de page. Le domaine vient
+// du serveur (PUBLIC_BASE_URL) et non de window.location, pour que les liens
+// partages hors du navigateur — QR code, mail, copie de lien — pointent sur le
+// vrai domaine et pas sur "localhost:3000". window.location.origin ne sert que
+// de secours si /config est injoignable.
 let configPromise = null;
 export function getConfig() {
   if (!configPromise) {
     configPromise = api.get("/config").catch(() => ({
       publicBaseUrl: window.location.origin,
+      maxPhotosPerListing: 10,
+      reverificationIntervalDays: 180,
     }));
   }
   return configPromise;
 }
+
+// Transforme un chemin renvoye par l'API ("/uploads/x.jpg") en URL absolue sur
+// le domaine public. Une URL deja absolue est laissee telle quelle.
+export function absoluteUrl(baseUrl, pathOrUrl) {
+  if (!pathOrUrl) return null;
+  if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl;
+  return `${String(baseUrl).replace(/\/+$/, "")}/${String(pathOrUrl).replace(/^\/+/, "")}`;
+}
+
+// ---------------------------------------------------------------------------
+// Liens de partage
+// ---------------------------------------------------------------------------
 
 // Construit un lien mailto d'invitation a rejoindre la plateforme. Ouvre le
 // client mail du visiteur avec un message pre-rempli (req: invitation par mail).
@@ -76,19 +105,80 @@ export function buildInviteMailto(baseUrl) {
   return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
+// Tous les liens de partage d'une annonce, bases sur les champs absolus
+// renvoyes par l'API (shareUrl / qrUrl / photoAbsoluteUrl). Le parametre
+// baseUrl sert de secours pour les reponses anciennes qui n'auraient pas
+// encore ces champs.
+export function buildListingShareLinks(listing, baseUrl) {
+  const url = listing.shareUrl ?? `${baseUrl}/listing.html?id=${listing.id}`;
+  const qrUrl = listing.qrUrl ?? `${baseUrl}/listings/${listing.id}/qr`;
+  const imageUrl =
+    listing.photoAbsoluteUrl ?? absoluteUrl(baseUrl, listing.photoUrl);
+
+  const subject = `HEIG-Échange — ${listing.title}`;
+  const body =
+    `Salut !\n\nRegarde cet objet donné sur HEIG-Échange : « ${listing.title} »\n\n` +
+    `${url}\n\nÀ bientôt !`;
+
+  return {
+    url,
+    qrUrl,
+    imageUrl,
+    mailto: `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
+  };
+}
+
+// Lien mailto pour contacter le donneur d'une annonce.
+export function buildContactMailto(listing, shareUrl) {
+  const subject = `HEIG-Échange — ${listing.title}`;
+  const body =
+    `Bonjour ${listing.ownerName ?? ""},\n\n` +
+    `Je suis intéressé·e par votre annonce « ${listing.title} » sur HEIG-Échange. ` +
+    "Est-elle toujours disponible ?\n\n" +
+    `${shareUrl}\n\nMerci !`;
+  return `mailto:${listing.ownerEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+// ---------------------------------------------------------------------------
+// Session
+// ---------------------------------------------------------------------------
+
 // Renvoie l'utilisateur connecte, ou null. Ne jette jamais.
-export async function getCurrentUser() {
-  try {
-    return await api.get("/auth/me");
-  } catch {
-    return null;
+// Un compte suspendu (adresse email a reconfirmer) repond 403 : on le traite
+// comme "non connecte" cote affichage, mais on conserve l'info pour que
+// requireUser puisse rediriger vers la page de reconfirmation.
+// Memoise pour la duree de la page : plusieurs briques d'interface veulent
+// connaitre l'utilisateur (pastille de compte, bandeau d'expiration, actions
+// du proprietaire) et il n'y a aucune raison d'interroger /auth/me autant de
+// fois. La navigation etant en rechargement complet, le cache ne peut pas
+// devenir obsolete apres une connexion ou une deconnexion.
+let lastAuthError = null;
+let currentUserPromise = null;
+export function getCurrentUser() {
+  if (!currentUserPromise) {
+    currentUserPromise = api
+      .get("/auth/me")
+      .then((user) => {
+        lastAuthError = null;
+        return user;
+      })
+      .catch((err) => {
+        lastAuthError = err;
+        return null;
+      });
   }
+  return currentUserPromise;
 }
 
 // A appeler en haut des pages qui exigent une session active.
 export async function requireUser() {
   const user = await getCurrentUser();
   if (!user) {
+    if (lastAuthError?.code === "EMAIL_REVERIFICATION_REQUIRED") {
+      const email = lastAuthError.data?.email ?? "";
+      window.location.href = `verify.html?email=${encodeURIComponent(email)}&reason=reverification`;
+      return null;
+    }
     window.location.href = "login.html";
     return null;
   }
@@ -99,6 +189,10 @@ export async function logout() {
   await api.post("/auth/logout");
   window.location.href = "login.html";
 }
+
+// ---------------------------------------------------------------------------
+// Libelles et petits helpers d'affichage
+// ---------------------------------------------------------------------------
 
 // Libelles francais pour les valeurs ENUM de l'API.
 export const CONDITION_LABELS = {
@@ -115,6 +209,19 @@ export const CONDITION_BADGE_CLASSES = {
   bon: "bg-amber-50 text-amber-700",
   usage: "bg-orange-50 text-orange-700",
   a_reparer: "bg-red-50 text-red-700",
+};
+
+// Statuts d'une annonce, pilotables par le proprietaire depuis l'edition.
+export const STATUS_LABELS = {
+  available: "Disponible",
+  reserved: "Réservée",
+  closed: "Donnée",
+};
+
+export const STATUS_BADGE_CLASSES = {
+  available: "bg-emerald-50 text-emerald-700",
+  reserved: "bg-amber-50 text-amber-700",
+  closed: "bg-mutedbg text-mutedfg",
 };
 
 const CATEGORY_BADGE_PALETTE = [

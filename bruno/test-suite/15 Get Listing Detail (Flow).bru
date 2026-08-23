@@ -1,0 +1,22 @@
+meta {
+  name: 15 Get Listing Detail (Flow)
+  type: http
+  seq: 15
+}
+
+get {
+  url: {{baseUrl}}/listings/{{flowListingId}}
+  body: none
+  auth: none
+}
+
+tests {
+  test("renvoie 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("renvoie l'annonce avec son tableau de photos", function () {
+    expect(res.getBody().id).to.equal(bru.getVar("flowListingId"));
+    expect(res.getBody().photos).to.be.an("array");
+  });
+}

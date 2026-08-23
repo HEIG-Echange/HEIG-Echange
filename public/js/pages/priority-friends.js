@@ -1,5 +1,7 @@
 import { requireUser, initials, escapeHtml } from "../api.js";
+import { mountNav } from "../ui.js";
 
+mountNav("friends");
 await requireUser();
 
 // Fonctionnalite en apercu : aucune table "groupes d'amis" n'existe encore

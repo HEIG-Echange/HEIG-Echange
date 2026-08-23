@@ -8,53 +8,71 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
-<script>
-  tailwind.config = {
-    theme: {
-      extend: {
-        colors: {
-          brand: { DEFAULT: '#c8102e', dark: '#a30d25', light: '#f9e4e7' },
-          appbg: '#f5f4f0', appfg: '#1a1816',
-          secondarybg: '#f0ede8', mutedbg: '#e8e5e0', mutedfg: '#7a7670',
-        },
-        fontFamily: { sans: ['"Plus Jakarta Sans"', '-apple-system', 'sans-serif'] },
-      },
-    },
-  }
-</script>
+<script src="js/tailwind-setup.js"></script>
 <link rel="stylesheet" href="css/app.css" />
-<style>body { font-family: 'Plus Jakarta Sans', sans-serif; }</style>
 </head>
-<body class="bg-mutedbg text-appfg antialiased">
+<body class="text-appfg antialiased">
 
-<div class="app-shell justify-center">
-  <div class="px-6 py-10">
-    <div class="text-center mb-8">
-      <p class="text-xs text-mutedfg font-semibold">HEIG-VD</p>
-      <h1 class="text-3xl font-extrabold text-brand -mt-0.5">Échange</h1>
+<!-- Deux colonnes sur desktop : argumentaire a gauche, formulaire a droite.
+     Sur mobile la colonne de gauche disparait, il ne reste que le formulaire. -->
+<div class="min-h-screen lg:grid lg:grid-cols-2">
+
+  <aside class="hidden lg:flex flex-col justify-between bg-brand text-white p-12">
+    <div>
+      <span class="inline-flex w-12 h-12 rounded-2xl bg-white/15 text-xl font-extrabold items-center justify-center">É</span>
+      <p class="text-sm font-semibold opacity-80 mt-8">HEIG-VD</p>
+      <h1 class="text-4xl font-extrabold leading-tight mt-1">Échange</h1>
+      <p class="text-lg opacity-90 mt-6 max-w-md">
+        Les objets qui dorment dans une chambre d'étudiant·e valent mieux qu'une
+        benne. Donnez-les à quelqu'un du campus.
+      </p>
     </div>
+    <ul class="space-y-3 text-sm opacity-90">
+      <li>— Publiez une annonce en deux minutes</li>
+      <li>— Filtrez par catégorie, cherchez ce dont vous avez besoin</li>
+      <li>— Contactez directement le donneur par email</li>
+    </ul>
+  </aside>
 
-    <form id="login-form" class="space-y-4">
-      <div id="error-box" class="hidden bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-3 py-2"></div>
-      <div>
-        <label class="block text-xs font-bold uppercase tracking-wide mb-1.5">Email HEIG-VD / HES-SO</label>
-        <input id="email-input" type="email" required placeholder="prenom.nom@heig-vd.ch"
-               class="w-full bg-white border border-appfg/15 rounded-xl px-3.5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30" />
+  <main class="flex items-center justify-center px-4 py-10 bg-mutedbg">
+    <div class="w-full max-w-md">
+      <div class="text-center mb-6 lg:text-left">
+        <span class="inline-flex lg:hidden w-12 h-12 rounded-2xl bg-brand text-white text-xl font-extrabold items-center justify-center">É</span>
+        <h2 class="text-2xl font-extrabold mt-3">Bon retour</h2>
+        <p class="text-sm text-mutedfg mt-1">Connectez-vous avec votre adresse HEIG-VD.</p>
       </div>
-      <div>
-        <label class="block text-xs font-bold uppercase tracking-wide mb-1.5">Mot de passe</label>
-        <input id="password-input" type="password" required
-               class="w-full bg-white border border-appfg/15 rounded-xl px-3.5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30" />
-      </div>
-      <button type="submit" class="w-full bg-brand hover:bg-brand-dark text-white font-bold rounded-xl py-3.5 transition-colors">
-        Se connecter
-      </button>
-    </form>
 
-    <p class="text-center text-sm text-mutedfg mt-6">
-      Pas encore de compte ? <a href="register.html" class="text-brand font-bold">S'inscrire</a>
-    </p>
-  </div>
+      <form id="login-form" class="bg-white border border-appfg/10 rounded-2xl p-5 space-y-4 shadow-sm">
+        <div id="error-box" class="hidden bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-3 py-2.5"></div>
+
+        <div>
+          <label for="email-input" class="block text-xs font-bold uppercase tracking-wide mb-1.5">Adresse email</label>
+          <input id="email-input" type="email" required autocomplete="email"
+                 placeholder="prenom.nom@heig-vd.ch"
+                 class="w-full bg-appbg border border-appfg/15 rounded-xl px-3.5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30" />
+        </div>
+
+        <div>
+          <label for="password-input" class="block text-xs font-bold uppercase tracking-wide mb-1.5">Mot de passe</label>
+          <input id="password-input" type="password" required autocomplete="current-password"
+                 class="w-full bg-appbg border border-appfg/15 rounded-xl px-3.5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30" />
+        </div>
+
+        <button type="submit"
+                class="w-full bg-brand hover:bg-brand-dark text-white font-bold rounded-xl py-3.5 transition-colors">
+          Se connecter
+        </button>
+      </form>
+
+      <p class="text-center text-sm text-mutedfg mt-5">
+        Pas encore de compte ?
+        <a href="register.html" class="font-bold text-brand hover:underline">Créer un compte</a>
+      </p>
+      <p class="text-center text-sm text-mutedfg mt-2">
+        <a href="index.html" class="hover:underline">Parcourir les annonces sans se connecter</a>
+      </p>
+    </div>
+  </main>
 </div>
 
 <script type="module" src="js/pages/login.js"></script>
