@@ -20,7 +20,12 @@ staging/prod, cette variable doit impérativement pointer sur le vrai domaine.**
 Config publique consommée par le frontend : lui évite de dupliquer des valeurs
 qui vivent côté serveur.
 
-- `200` → `{ publicBaseUrl, maxPhotosPerListing, reverificationIntervalDays }`
+- `200` → `{ publicBaseUrl, maxPhotosPerListing, maxPhotoSizeBytes, acceptedPhotoMimeTypes, reverificationIntervalDays }`
+
+`maxPhotoSizeBytes` et `acceptedPhotoMimeTypes` sont les limites réellement
+appliquées à l'upload : le frontend s'en sert pour refuser un fichier au
+moment où l'utilisateur le choisit, plutôt que de laisser l'envoi échouer en
+`400` une fois l'annonce publiée.
 
 ## Authentification - `/auth`
 
@@ -383,13 +388,19 @@ photos citées et les autres.
 
 ### `POST /listings/ai/analyze` - connecté
 
-Envoie une photo (multipart, champ `photo`) à une IA (Claude vision) et renvoie
-une pré-saisie pour le formulaire d'annonce. **Ne crée aucune annonce.**
+Envoie une photo (multipart, champ `photo`) à un modèle vision hébergé sur
+**Hugging Face** et renvoie une pré-saisie pour le formulaire d'annonce.
+**Ne crée aucune annonce.** La photo est supprimée du serveur juste après
+l'analyse.
+
+Le modèle et les prompts sont modifiables en ligne par un administrateur (voir
+`GET`/`PUT /admin/ai-settings`) : la formulation peut être ajustée sans
+redéploiement.
 
 - `200` → `{ categorySlug, categoryId, itemCondition, description }`
 - `400` - fichier manquant/invalide
 - `401` - pas connecté
-- `503` - analyse IA non configurée (`ANTHROPIC_API_KEY` absente)
+- `503` - analyse IA non configurée (`HUGGINGFACE_API_KEY` absente)
 - `502` - l'appel à l'IA a échoué
 
 ### `DELETE /listings/:id` - connecté, propriétaire ou admin
@@ -575,5 +586,40 @@ renvoie pas les mêmes emails.
 > `email_verified_at` à chaque requête, et s'applique donc même si le job n'a
 > jamais tourné. Le job se contente de prévenir les utilisateurs par email.
 
+
+### `GET /admin/ai-settings`
+
+Réglages de l'analyse IA des photos. Trois valeurs sont personnalisables : le
+modèle Hugging Face, le prompt système et le prompt d'analyse. Elles vivent
+dans la table `app_settings`, éditables depuis `/admin-ai.html`.
+
+Ordre de précédence, du plus fort au plus faible : **base de données** >
+**variable d'environnement** (`AI_MODEL`, `AI_SYSTEM_PROMPT`, `AI_USER_PROMPT`)
+> **défaut du code**.
+
+- `200` → `{ provider, configured, effective, defaults, overridden, placeholders }`
+  - `provider` - `"huggingface"`
+  - `configured` - le serveur a-t-il un jeton (`HUGGINGFACE_API_KEY`) ? Sinon
+    `POST /listings/ai/analyze` répond `503`
+  - `effective` - `{ model, systemPrompt, userPrompt }` réellement utilisés
+  - `defaults` - les mêmes champs, sans la personnalisation
+  - `overridden` - un booléen par champ : la valeur vient-elle de la base ?
+  - `placeholders` - marqueurs remplacés dans le prompt d'analyse :
+    `{{categories}}` (les catégories réellement en base) et `{{conditions}}`
+    (les valeurs de l'ENUM `item_condition`)
+
+### `PUT /admin/ai-settings`
+
+Corps : `{ model?, systemPrompt?, userPrompt? }`.
+
+- champ **absent** → laissé tel quel
+- champ à `null` ou à la chaîne vide → la personnalisation est **effacée**, la
+  valeur repart du défaut
+
+Les nouveaux réglages s'appliquent dès l'analyse suivante, sans redémarrage.
+
+- `200` → `{ effective, defaults }`
+- `400` - un champ fourni n'est ni une chaîne ni `null`
+- `401` / `403` - pas connecté / pas administrateur
 ---
 

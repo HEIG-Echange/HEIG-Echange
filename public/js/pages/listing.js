@@ -3,6 +3,7 @@ import {
   getConfig,
   getCurrentUser,
   buildContactMailto,
+  buildTeamsChatUrl,
   buildListingShareLinks,
   initials,
   CONDITION_LABELS,
@@ -191,11 +192,26 @@ async function render() {
       }
     });
   } else if (user && listing.ownerEmail) {
-    // Visiteur connecte : contact par mail du proprietaire, message pre-rempli
-    // contenant le lien public de l'annonce (et non l'URL du navigateur).
+    // Visiteur connecte : deux facons de joindre le donneur, toutes deux avec
+    // un message pre-rempli contenant le lien public de l'annonce (et non
+    // l'URL du navigateur).
+    //
+    // Teams en premier : c'est le canal decrit dans le projet (prise de contact
+    // et rendez-vous), et tout le monde y est deja connecte avec son compte
+    // d'ecole. Le mail reste en secours pour qui n'utilise pas Teams.
+    const teamsUrl = buildTeamsChatUrl(listing, shareUrl);
+
     actionZone.innerHTML = `
+      ${
+        teamsUrl
+          ? `<a href="${escapeHtml(teamsUrl)}" target="_blank" rel="noopener"
+                class="flex items-center justify-center gap-2 w-full bg-brand hover:bg-brand-dark text-white font-bold rounded-xl py-3 transition-colors">
+               ${icon("chat")} Contacter via Teams
+             </a>`
+          : ""
+      }
       <a href="${escapeHtml(buildContactMailto(listing, shareUrl))}"
-         class="flex items-center justify-center gap-2 w-full bg-brand hover:bg-brand-dark text-white font-bold rounded-xl py-3 transition-colors">
+         class="flex items-center justify-center gap-2 w-full border border-appfg/15 bg-white font-bold rounded-xl py-3 hover:bg-secondarybg transition-colors">
         ${icon("mail")} Contacter par mail
       </a>
     `;

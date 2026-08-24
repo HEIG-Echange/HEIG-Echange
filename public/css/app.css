@@ -327,6 +327,36 @@ body {
   }
 }
 
+/* Zone de depot des photos : cliquable, focalisable au clavier, et surlignee
+   pendant un glisser-deposer. */
+.photo-dropzone {
+  display: block;
+  width: 100%;
+  border: 2px dashed var(--border);
+  border-radius: 1rem;
+  padding: 2rem 1rem;
+  text-align: center;
+  cursor: pointer;
+  background: #fff;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.photo-dropzone:hover,
+.photo-dropzone:focus-visible {
+  border-color: var(--brand);
+}
+
+.photo-dropzone.is-dragging {
+  border-color: var(--brand);
+  background: var(--brand-light);
+}
+
+/* Quota atteint : la zone reste accessible (le message d'erreur explique
+   pourquoi rien ne s'ajoute) mais ne s'annonce plus comme une invitation. */
+.photo-dropzone.is-full {
+  opacity: 0.55;
+}
+
 /* Vignettes de photos selectionnees / existantes, avec bouton de retrait. */
 .photo-thumb {
   position: relative;
@@ -372,6 +402,39 @@ body {
   font-weight: 700;
   text-align: center;
   padding: 0.15rem 0;
+}
+
+/* Fleches de reordonnancement : la premiere photo de la liste est la vignette
+   de l'annonce, il faut pouvoir la choisir sans tout re-televerser. */
+.photo-thumb .thumb-move {
+  position: absolute;
+  left: 0.25rem;
+  bottom: 0.25rem;
+  display: flex;
+  gap: 0.15rem;
+}
+
+.photo-thumb .thumb-move button {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 9999px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 0.8rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.photo-thumb .thumb-move button:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+/* La vignette laisse la place aux fleches, sinon les deux se superposent. */
+.photo-thumb .thumb-cover {
+  padding-left: 2.9rem;
 }
 
 /* Petit menu de partage ancre sous son bouton. */

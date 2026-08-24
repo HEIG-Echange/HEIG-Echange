@@ -859,7 +859,9 @@ listingsRouter.post(
       if (!aiConfigured()) {
         res
           .status(503)
-          .json({ error: "analyse IA indisponible (ANTHROPIC_API_KEY non configuree)" });
+          .json({
+            error: "analyse IA indisponible (HUGGINGFACE_API_KEY non configuree)",
+          });
         return;
       }
       if (!mediaType) {
