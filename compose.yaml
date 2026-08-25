@@ -34,9 +34,18 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
+      # Dossier de stockage des images uploadees, monte sur le volume
+      # "uploads-data" ci-dessous. Chemin fixe cote conteneur.
+      UPLOAD_DIR: /app/uploads
+      # PUBLIC_BASE_URL (domaine des QR/liens) reste configurable via .env.
 
     ports:
       - "${APP_PORT:-3000}:3000"
+
+    # Persiste les images uploadees hors du conteneur (survit aux redemarrages
+    # et reconstructions d'image).
+    volumes:
+      - uploads-data:/app/uploads
 
     # Durcissement : le conteneur n'ecrit nulle part, ne gagne aucun privilege
     # et ne conserve aucune capability.
@@ -97,4 +106,5 @@ services:
 
 volumes:
   db-data:
+  uploads-data:
 

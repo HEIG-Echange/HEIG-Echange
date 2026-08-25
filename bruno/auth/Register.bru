@@ -20,6 +20,14 @@ body:json {
 
 vars:pre-request {
   password: password
-  email: user@heig-vd.ch
+  email: sofia.henriquesgarfo@heig-vd.ch
   name: user
+}
+
+script:post-response {
+  // Present seulement si EXPOSE_VERIFICATION_CODE_FOR_TESTING=true (.env) —
+  // permet d'enchainer directement sur "Verify Email" sans vraie boite mail.
+  if (res.body && res.body.devVerificationCode) {
+    bru.setVar("devVerificationCode", res.body.devVerificationCode);
+  }
 }

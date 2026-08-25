@@ -1,0 +1,23 @@
+meta {
+  name: Resend Code
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/auth/resend-code
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "email": "{{email}}"
+  }
+}
+
+script:post-response {
+  if (res.body && res.body.devVerificationCode) {
+    bru.setVar("devVerificationCode", res.body.devVerificationCode);
+  }
+}

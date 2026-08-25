@@ -7,15 +7,29 @@ Collection Bruno correspondante : `bruno/` , voir `bruno/README.md` .
 
 En local : `http://localhost:3000`
 
+Le domaine public (QR codes, liens de partage/invitation) est configurable via
+la variable d'environnement `PUBLIC_BASE_URL` (voir `.env.example`).
+
+### `GET /config`
+
+Config publique consommee par le frontend.
+
+- `200` → `{ publicBaseUrl }`
+
 ## Authentification - `/auth`
 
 L'authentification actuelle est **email + mot de passe** (bcrypt), via
 `express-session` : un cookie de session (`connect.sid`) est posé au
-register/login et doit être renvoyé à chaque requête protégée. 
+login et doit être renvoyé à chaque requête protégée.
+
+Un compte fraîchement créé n'est **pas** utilisable immédiatement : l'adresse
+email doit d'abord être vérifiée par un code reçu par email (voir
+`POST /auth/verify-email` ci-dessous). `POST /auth/login` refuse la connexion
+tant que ce n'est pas fait.
 
 ### `POST /auth/register`
 
-Crée un compte et ouvre la session.
+Crée un compte (non vérifié) et envoie un code de vérification par email.**N'ouvre pass la session**
 
 | Champ | Type | Requis | Contrainte |
 |---|---|---|---|
@@ -23,12 +37,46 @@ Crée un compte et ouvre la session.
 | `displayName` | string | oui | non vide |
 | `password` | string | oui | 8 caractères minimum |
 
-- `201` → `{ id, email, displayName, role: "user" }`
+- `201` → `{ id, email, displayName, role: "user", emailVerified: false, message }`
+  (+ `devVerificationCode` — voir encadré ci-dessous)
 - `400` - champs manquants/invalides
 - `403` - domaine d'email non autorisé
 - `409` - un compte existe déjà pour cet email
 
 Les comptes admin doivent être crée en base de données.
+
+> **`devVerificationCode` (dev uniquement).** Quand `NODE_ENV !== "production"`
+> la réponse inclut aussi le code de vérification en clair,
+> pour pouvoir tester sans accéder à une vraie boîte mail.
+
+### `POST /auth/verify-email`
+
+Confirme l'adresse email avec le code reçu (8 chiffres, valable 15 minutes,
+usage unique).
+
+| Champ | Type | Requis |
+|---|---|---|
+| `email` | string | oui |
+| `code` | string | oui |
+
+- `200` → `{ emailVerified: true }`
+- `400` - champs manquants, ou code invalide/expiré
+- `404` - aucun compte pour cet email
+- `409` - cet email est déjà vérifié
+
+### `POST /auth/resend-code`
+
+Régénère et renvoie un code de vérification (ex. code perdu ou expiré).
+
+| Champ | Type | Requis |
+|---|---|---|
+| `email` | string | oui |
+
+- `200` → `{ message }` (+ `devVerificationCode` en dev, même règle que
+  `POST /auth/register`)
+- `400` - `email` manquant
+- `404` - aucun compte pour cet email
+- `409` - cet email est déjà vérifié
 
 ### `POST /auth/login`
 
@@ -40,7 +88,9 @@ Les comptes admin doivent être crée en base de données.
 - `200` → `{ id, email, displayName, role }`
 - `400` - champs manquants
 - `401` - mot de passe incorrect
-- `403` - compte bloqué (`is_blocked`)
+- `403` - email pas encore vérifié (`code: "EMAIL_NOT_VERIFIED"`, voir
+  `POST /auth/verify-email`/`POST /auth/resend-code`) ou compte bloqué
+  (`is_blocked`)
 - `404` - aucun compte pour cet email
 
 ### `POST /auth/logout`
@@ -98,16 +148,17 @@ Crée une annonce, `owner_id` vient de la session.
 | `title` | string | oui |
 | `description` | string | oui |
 | `itemCondition` | `"neuf" \| "tres_bon" \| "bon" \| "usage" \| "a_reparer"` | oui |
+| `location` | string \| null | non - lieu libre (texte) |
 
-- `201` → `{ id, ownerId, categoryId, title, description, itemCondition, status: "available" }`
+- `201` → `{ id, ownerId, categoryId, title, description, itemCondition, location, status: "available" }`
 - `400` - champs manquants/invalides, ou `categoryId` inexistant
 - `401` - pas connecté
 
 ### `PATCH /listings/:id` - connecté, propriétaire ou admin
 
 Mise à jour partielle : mêmes champs que la création (`categoryId`,
-`title`, `description`, `itemCondition`), tous optionnels mais au moins un
-requis.
+`title`, `description`, `itemCondition`, `location`), tous optionnels mais au
+moins un requis. `location` accepte `null` pour effacer le lieu.
 
 - `200` → l'annonce mise à jour (même forme que `GET /listings/:id` sans le
   tableau `photos`)
@@ -118,7 +169,7 @@ requis.
 
 ### `GET /listings`
 
-Grille des annonces. Filtres optionnels,
+Grille des annonces. **Accessible sans être connecté.** Filtres optionnels,
 combinables :
 
 | Query param | Type | Effet |
@@ -128,16 +179,83 @@ combinables :
 | `q` | string | recherche plein texte (`title` + `description`, FULLTEXT MariaDB) |
 
 - `200` → tableau d'annonces, `photoUrl` = première photo (vignette) ou
-  `null`, triées par date de création décroissante
+  `null`, `location` (lieu libre ou `null`), triées par date de création
+  décroissante
 - `400` - `categoryId`/`ownerId` fourni mais non numérique
+
+> **Confidentialité des contacts.** `ownerName` et `ownerEmail` ne sont
+> renseignés que si la requête provient d'un utilisateur **connecté**. Pour un
+> visiteur anonyme, ces deux champs valent `null` (l'annonce reste visible, mais
+> pas les informations de contact du donneur).
 
 ### `GET /listings/:id`
 
-Fiche détail, avec le tableau complet des photos.
+Fiche détail, avec le tableau complet des photos. **Accessible sans être
+connecté** (mêmes règles de masquage `ownerName`/`ownerEmail` que ci-dessus).
 
-- `200` → annonce + `photos: [{ id, url, position }]`
+- `200` → annonce (+ `location`, `ownerEmail`) + `photos: [{ id, url, position }]`
 - `400` - id non numérique
 - `404` - annonce introuvable
+
+### `GET /listings/interested` - connecté
+
+Ids des annonces (encore actives) sur lesquelles l'utilisateur connecté a
+manifesté son intérêt.
+
+- `200` → `[listingId, ...]` (tableau de nombres, triés par date d'inscription
+  décroissante)
+- `401` - pas connecté
+
+### `GET /listings/:id/interest` - connecté
+
+État de l'intérêt du visiteur connecté pour cette annonce.
+Renvoi true si l'utilisateur a deja marque son interet pr cet article
+
+- `200` → `{ interested: boolean }`
+- `400` - id non numérique
+- `401` - pas connecté
+
+### `POST /listings/:id/interest` - connecté
+
+Marquer l'utilisateur comme interessé par l'article
+
+- `201` → `{ interested: true }` (première fois)
+- `200` → `{ interested: true }` (déjà enregistré)
+- `400` - id non numérique, ou tentative sur sa propre annonce
+- `401` - pas connecté
+- `404` - annonce introuvable
+
+### `DELETE /listings/:id/interest` - connecté
+
+Enleve l'interet de l'utilisateur
+
+- `204`, pas de body
+- `400` - id non numérique
+- `401` - pas connecté
+- `404` - aucun intérêt enregistré pour cette annonce (par ce compte)
+
+### `POST /listings/:id/photos` - connecté, propriétaire ou admin
+
+Ajoute une photo à une annonce. Corps **multipart/form-data**, champ `photo`
+(image jpeg/png/webp/gif, 5 Mo max). Le fichier est stocké sur disque (volume
+Docker `uploads-data`) et servi via `/uploads/...`.
+
+- `201` → `{ id, url, position }`
+- `400` - fichier manquant/invalide, id non numérique, image trop volumineuse
+- `401` - pas connecté
+- `403` - ni propriétaire ni admin
+- `404` - annonce introuvable
+
+### `POST /listings/ai/analyze` - connecté
+
+Envoie une photo (multipart, champ `photo`) à une IA (Claude vision) et renvoie
+une pré-saisie pour le formulaire d'annonce. **Ne crée aucune annonce.**
+
+- `200` → `{ categorySlug, categoryId, itemCondition, description }`
+- `400` - fichier manquant/invalide
+- `401` - pas connecté
+- `503` - analyse IA non configurée (`ANTHROPIC_API_KEY` absente)
+- `502` - l'appel à l'IA a échoué
 
 ### `DELETE /listings/:id` - connecté, propriétaire ou admin
 
@@ -167,6 +285,28 @@ Référence fixe, utilisée pour les filtres et le formulaire de création
 d'annonce.
 
 - `200` → `[{ id, slug, label }]`, triées par `label`
+
+---
+
+## Utilisateurs - `/users`
+
+### `GET /users/:id`
+
+Profil **public** d'un utilisateur. Accessible sans être connecté. Ne renvoie
+aucune information de contact (email).
+
+- `200` → `{ id, displayName, avatarUrl, createdAt, activeListings, profileUrl }`
+- `400` - id non numérique
+- `404` - utilisateur introuvable (ou supprimé/bloqué)
+
+### `GET /users/:id/qr`
+
+QR code (SVG) pointant vers le profil public (`PUBLIC_BASE_URL/u.html?id=:id`).
+Le domaine encodé provient de la variable d'environnement `PUBLIC_BASE_URL`.
+
+- `200` → image `image/svg+xml`
+- `400` - id non numérique
+- `404` - utilisateur introuvable (ou supprimé/bloqué)
 
 ---
 
