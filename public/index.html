@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Échange — Accueil</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          brand: { DEFAULT: '#c8102e', dark: '#a30d25', light: '#f9e4e7' },
+          appbg: '#f5f4f0', appfg: '#1a1816',
+          secondarybg: '#f0ede8', mutedbg: '#e8e5e0', mutedfg: '#7a7670',
+        },
+        fontFamily: { sans: ['"Plus Jakarta Sans"', '-apple-system', 'sans-serif'] },
+      },
+    },
+  }
+</script>
+<link rel="stylesheet" href="css/app.css" />
+<style>:root { --appbg: #f5f4f0; } body { font-family: 'Plus Jakarta Sans', sans-serif; }</style>
+</head>
+<body class="bg-mutedbg text-appfg antialiased">
+
+<div class="app-shell">
+  <!-- Header -->
+  <header class="flex-shrink-0 px-4 pt-4 pb-3 bg-white border-b border-appfg/10">
+    <div class="flex items-center justify-between mb-3">
+      <div>
+        <p class="text-xs text-mutedfg font-semibold">HEIG-VD</p>
+        <h1 class="text-2xl font-extrabold text-appfg tracking-tight -mt-0.5">Échange</h1>
+      </div>
+      <button type="button" title="Notifications (bientôt disponible)"
+              class="w-9 h-9 rounded-full bg-secondarybg border border-appfg/10 flex items-center justify-center text-base">
+        🔔
+      </button>
+    </div>
+    <div class="relative">
+      <span class="absolute left-3 top-1/2 -translate-y-1/2 text-mutedfg">🔍</span>
+      <input id="search-input" type="search" placeholder="Rechercher…"
+             class="w-full bg-secondarybg border border-appfg/10 rounded-xl pl-9 pr-3 py-2.5 text-sm placeholder:text-mutedfg focus:outline-none focus:ring-2 focus:ring-brand/30" />
+    </div>
+  </header>
+
+  <!-- Onglets categories -->
+  <nav id="category-tabs" class="flex-shrink-0 flex gap-2 px-4 py-3 overflow-x-auto no-scrollbar bg-white border-b border-appfg/10 text-sm font-bold">
+    <!-- rempli par home.js -->
+  </nav>
+
+  <!-- Grille des annonces -->
+  <main id="listings-grid" class="flex-1 overflow-y-auto px-4 py-3 space-y-3 pb-24">
+    <p class="text-center text-sm text-mutedfg py-10">Chargement…</p>
+  </main>
+
+  <!-- Nav du bas -->
+  <nav class="flex-shrink-0 h-16 bg-white border-t border-appfg/10 flex items-stretch px-2 sticky bottom-0">
+    <a href="index.html" class="flex-1 flex flex-col items-center justify-center gap-1 text-brand">
+      <span class="text-lg leading-none">▦</span>
+      <span class="text-[11px] font-bold">Accueil</span>
+    </a>
+    <a href="add-listing.html" class="flex-1 flex items-center justify-center">
+      <span class="w-12 h-12 -mt-5 rounded-full bg-brand shadow-lg flex items-center justify-center text-white text-2xl font-bold">+</span>
+    </a>
+    <a href="profile.html" class="flex-1 flex flex-col items-center justify-center gap-1 text-mutedfg">
+      <span class="text-lg leading-none">◯</span>
+      <span class="text-[11px] font-bold">Profil</span>
+    </a>
+  </nav>
+</div>
+
+<script type="module" src="js/pages/home.js"></script>
+</body>
+</html>

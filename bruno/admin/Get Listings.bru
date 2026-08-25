@@ -1,0 +1,19 @@
+meta {
+  name: Get Listings
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/admin/listings
+  body: none
+  auth: none
+}
+
+params:query {
+  ~ownerId: {{ownerId}}
+}
+
+vars:pre-request {
+  ownerId: 1
+}

@@ -1,0 +1,23 @@
+meta {
+  name: Update Profile
+  type: http
+  seq: 5
+}
+
+patch {
+  url: {{baseUrl}}/auth/me
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "displayName": "{{displayName}}",
+    "avatarUrl": "{{avatarUrl}}"
+  }
+}
+
+vars:pre-request {
+  displayName: Nouveau nom
+  avatarUrl: https://example.com/avatar.png
+}

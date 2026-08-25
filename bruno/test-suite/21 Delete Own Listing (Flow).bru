@@ -1,0 +1,17 @@
+meta {
+  name: 21 Delete Own Listing (Flow)
+  type: http
+  seq: 21
+}
+
+delete {
+  url: {{baseUrl}}/listings/{{flowListingId}}
+  body: none
+  auth: none
+}
+
+tests {
+  test("renvoie 204 - le proprietaire peut retirer sa propre annonce sans motif", function () {
+    expect(res.getStatus()).to.equal(204);
+  });
+}

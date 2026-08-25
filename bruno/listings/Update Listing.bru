@@ -1,0 +1,31 @@
+meta {
+  name: Update Listing
+  type: http
+  seq: 4
+}
+
+patch {
+  url: {{baseUrl}}/listings/{{listingId}}
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "title": "{{title}}",
+    "description": "{{description}}"
+  }
+}
+
+vars:pre-request {
+  title: Calculatrice HP Prime G2 (modifiee)
+  description: Description mise a jour
+}
+
+script:pre-request {
+  // Valeur par defaut si aucune annonce n'a ete creee dans cette session —
+  // modifiable directement dans l'onglet Vars sinon.
+  if (!bru.getVar("listingId")) {
+    bru.setVar("listingId", 1);
+  }
+}

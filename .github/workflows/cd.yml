@@ -1,18 +1,18 @@
 # ---------------------------------------------------------------------------
 # CD — deploiement sur les machines distantes.
 #
-#   merge sur main            -> staging automatiquement
-#   declenchement manuel      -> staging ou production
+#   push sur staging           -> deploiement staging automatiquement
+#   merge sur main             -> deploiement production automatiquement
+#   declenchement manuel       -> staging ou production
 #
-# La production n'est pas automatique : staging sert de filtre, et
-# l'environnement "production" peut en plus exiger une approbation
+# L'environnement "production" peut en plus exiger une approbation
 # (Settings > Environments > production > Required reviewers).
 # ---------------------------------------------------------------------------
 name: CD
 
 on:
   push:
-    branches: [main]
+    branches: [main, staging]
     paths-ignore:
       - "docs/**"
       - "**.md"
@@ -27,7 +27,7 @@ on:
         default: staging
 
 concurrency:
-  group: cd-main
+  group: cd-${{ github.ref_name }}
 
 jobs:
   # Le deploiement construit l'image sur la machine cible : on revalide donc le
@@ -50,7 +50,9 @@ jobs:
   # DEPLOY_PATH est defini (recommande, une valeur par environnement), il gagne.
   staging:
     needs: verify
-    if: github.event_name == 'push' || inputs.environment == 'staging'
+    if: >-
+      (github.event_name == 'push' && github.ref_name == 'staging')
+      || (github.event_name == 'workflow_dispatch' && inputs.environment == 'staging')
     uses: ./.github/workflows/deploy.yml
     with:
       environment: staging
@@ -59,7 +61,9 @@ jobs:
 
   production:
     needs: verify
-    if: github.event_name == 'workflow_dispatch' && inputs.environment == 'production'
+    if: >-
+      (github.event_name == 'push' && github.ref_name == 'main')
+      || (github.event_name == 'workflow_dispatch' && inputs.environment == 'production')
     uses: ./.github/workflows/deploy.yml
     with:
       environment: production
@@ -67,7 +71,7 @@ jobs:
     secrets: inherit
 
 
-  # 1rst version of deployment
+  # Deploys image to Github registry
   deploy:
     runs-on: ubuntu-latest
     permissions:

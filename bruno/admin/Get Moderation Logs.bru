@@ -1,0 +1,21 @@
+meta {
+  name: Get Moderation Logs
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/admin/moderation-logs
+  body: none
+  auth: none
+}
+
+params:query {
+  ~targetType: {{targetType}}
+  ~targetId: {{targetId}}
+}
+
+vars:pre-request {
+  targetType: listing
+  targetId: 1
+}
