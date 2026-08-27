@@ -15,7 +15,7 @@ name: CD
 
 on:
   push:
-    branches: [main, staging]
+    branches: [main, staging, deva, devb, devc]
     paths-ignore:
       - "docs/**"
       - "**.md"
@@ -27,6 +27,9 @@ on:
         options:
           - staging
           - production
+          - deva
+          - devb
+          - devc
         default: staging
 
 concurrency:
