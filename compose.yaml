@@ -29,35 +29,40 @@ services:
       - path: .env
         required: false
 
-    # Declare apres env_file, donc prioritaire : le port interne reste 3000
-    # quoi qu'il arrive, seul le port hote est configurable.
     environment:
       NODE_ENV: production
+      # Note: traité après env_file, donc prioritaire.
+      # le port interne reste 3000
+      # quoi qu'il arrive, seul le port hote est configurable.
       PORT: 3000
-      # Dossier de stockage des images uploadees, monte sur le volume
-      # "uploads-data" ci-dessous. Chemin fixe cote conteneur.
+      # Chemin de stockage des images dans l'app
+      # Dossier de stockage des images uploadées 
+      # voir volume "uploads-data"
       UPLOAD_DIR: /app/uploads
       # PUBLIC_BASE_URL (domaine des QR/liens) reste configurable via .env.
 
     ports:
       - "${APP_PORT:-3000}:3000"
 
-    # Persiste les images uploadees hors du conteneur (survit aux redemarrages
-    # et reconstructions d'image).
+    # Persiste les images uploadees hors du conteneur
+    # persiste entre différentes versions d images docker
     volumes:
       - uploads-data:/app/uploads
 
-    # Durcissement : le conteneur n'ecrit nulle part, ne gagne aucun privilege
-    # et ne conserve aucune capability.
-    # read_only: true
-    tmpfs:
-      - /tmp
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
+    # optimisation: le dossier /tmp s écrit en RAM au lieu de sur disque.
+    #   -> sécu / fichiers sensibles
+    # tmpfs:
+    #   - /tmp
 
-    # Sans rotation, les logs d'un service en restart: unless-stopped peuvent
+    # TODO
+    ## désactivation de ...
+    # cap_drop:
+    #   - ALL
+    # security_opt:
+    #   - no-new-privileges:true
+
+
+    # Rotation des logs. d'un service en restart: unless-stopped peuvent
     # remplir le disque.
     logging:
       driver: json-file
