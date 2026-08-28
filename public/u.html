@@ -8,34 +8,32 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
-<script>
-  tailwind.config = {
-    theme: {
-      extend: {
-        colors: {
-          brand: { DEFAULT: '#c8102e', dark: '#a30d25', light: '#f9e4e7' },
-          appbg: '#f5f4f0', appfg: '#1a1816',
-          secondarybg: '#f0ede8', mutedbg: '#e8e5e0', mutedfg: '#7a7670',
-        },
-        fontFamily: { sans: ['"Plus Jakarta Sans"', '-apple-system', 'sans-serif'] },
-      },
-    },
-  }
-</script>
+<script src="js/tailwind-setup.js"></script>
 <link rel="stylesheet" href="css/app.css" />
-<style>body { font-family: 'Plus Jakarta Sans', sans-serif; }</style>
 </head>
-<body class="bg-mutedbg text-appfg antialiased">
+<body class="text-appfg antialiased">
+
+<nav class="side-nav" aria-label="Navigation principale"></nav>
 
 <div class="app-shell">
-  <header class="flex-shrink-0 flex items-center gap-3 px-4 py-4 bg-white border-b border-appfg/10">
-    <a href="index.html" class="w-9 h-9 rounded-full bg-secondarybg flex items-center justify-center">←</a>
-    <h1 class="text-lg font-extrabold">Profil</h1>
+  <header class="flex-shrink-0 bg-white border-b border-appfg/10 sticky top-0 z-20">
+    <div class="app-container py-3 flex items-center gap-3">
+      <a href="index.html" aria-label="Retour à l'accueil"
+         class="w-9 h-9 rounded-full bg-secondarybg flex items-center justify-center flex-shrink-0 hover:bg-mutedbg transition-colors">←</a>
+      <h1 class="text-lg font-extrabold truncate">Profil</h1>
+      <div id="account-chip" class="ml-auto hidden md:block"></div>
+    </div>
   </header>
 
-  <main id="content" class="flex-1 overflow-y-auto">
-    <p class="text-center text-sm text-mutedfg py-10">Chargement…</p>
+  <main class="app-main">
+    <div class="app-container pt-4">
+      <div id="content">
+        <p class="text-center text-sm text-mutedfg py-10">Chargement…</p>
+      </div>
+    </div>
   </main>
+
+  <nav class="bottom-nav" aria-label="Navigation principale"></nav>
 </div>
 
 <script type="module" src="js/pages/user.js"></script>

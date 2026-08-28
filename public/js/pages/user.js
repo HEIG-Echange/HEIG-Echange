@@ -1,7 +1,19 @@
-import { api, CONDITION_LABELS, CONDITION_BADGE_CLASSES, categoryBadgeClass, initials, escapeHtml } from "../api.js";
+import { api, initials, escapeHtml } from "../api.js";
+import {
+  mountNav,
+  mountAccountChip,
+  mountViewToggle,
+  listingCardHtml,
+} from "../ui.js";
+
+mountNav("home");
+mountAccountChip(document.getElementById("account-chip"));
 
 const contentEl = document.getElementById("content");
 const id = new URLSearchParams(window.location.search).get("id");
+
+let viewMode = "grid";
+let listings = [];
 
 if (!id) {
   contentEl.innerHTML = `<p class="text-center text-sm text-red-600 py-10">Profil introuvable.</p>`;
@@ -9,28 +21,17 @@ if (!id) {
   render();
 }
 
-function listingCard(listing) {
-  const badgeClass = categoryBadgeClass(listing.categoryId);
-  const conditionClass = CONDITION_BADGE_CLASSES[listing.itemCondition] ?? "bg-gray-50 text-gray-700";
-  const conditionLabel = CONDITION_LABELS[listing.itemCondition] ?? listing.itemCondition;
-  const photo = listing.photoUrl
-    ? `<img src="${escapeHtml(listing.photoUrl)}" alt="${escapeHtml(listing.title)}" class="w-full h-full object-cover" loading="lazy" />`
-    : `<div class="w-full h-full flex items-center justify-center text-3xl text-mutedfg">📦</div>`;
+function renderListings() {
+  const el = document.getElementById("user-listings");
+  if (!el) return;
 
-  return `
-    <a href="listing.html?id=${listing.id}" class="block bg-white border border-appfg/10 rounded-2xl overflow-hidden hover:shadow-md transition-shadow">
-      <div class="relative h-40 bg-mutedbg">
-        ${photo}
-        ${listing.categoryLabel ? `<span class="absolute top-2 left-2 text-[11px] font-semibold px-2 py-0.5 rounded-full border ${badgeClass}">${escapeHtml(listing.categoryLabel)}</span>` : ""}
-      </div>
-      <div class="p-3">
-        <p class="text-sm font-bold text-appfg leading-snug">${escapeHtml(listing.title)}</p>
-        <div class="flex items-center justify-end mt-2.5">
-          <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full ${conditionClass}">${conditionLabel}</span>
-        </div>
-      </div>
-    </a>
-  `;
+  el.className = `listing-grid${viewMode === "compact" ? " is-compact" : ""}`;
+
+  if (listings.length === 0) {
+    el.innerHTML = `<p class="col-span-full text-center text-sm text-mutedfg py-8">Aucune annonce en ligne pour l'instant.</p>`;
+    return;
+  }
+  el.innerHTML = listings.map((l) => listingCardHtml(l, viewMode)).join("");
 }
 
 async function render() {
@@ -43,34 +44,48 @@ async function render() {
   }
 
   const memberSince = user.createdAt
-    ? new Date(user.createdAt).toLocaleDateString("fr-CH", { month: "long", year: "numeric" })
+    ? new Date(user.createdAt).toLocaleDateString("fr-CH", {
+        month: "long",
+        year: "numeric",
+      })
     : null;
 
+  // Meme decoupage que "mon profil" : identite a gauche, annonces a droite sur
+  // desktop, tout empile sur mobile.
   contentEl.innerHTML = `
-    <div class="bg-white border-b border-appfg/10 px-4 py-6 flex flex-col items-center text-center">
-      <div class="w-20 h-20 rounded-full bg-brand text-white text-2xl font-bold flex items-center justify-center mb-3">${escapeHtml(initials(user.displayName))}</div>
-      <p class="text-xl font-extrabold">${escapeHtml(user.displayName)}</p>
-      ${memberSince ? `<p class="text-xs text-mutedfg mt-1">Membre depuis ${escapeHtml(memberSince)}</p>` : ""}
-      <p class="text-sm text-mutedfg mt-2">${user.activeListings} annonce${user.activeListings === 1 ? "" : "s"} en ligne</p>
-      <img src="/users/${user.id}/qr" alt="QR code du profil" class="w-28 h-28 mt-4 rounded-lg border border-appfg/10" />
-    </div>
-    <div class="px-4 py-4">
-      <h2 class="font-extrabold mb-3">Ses objets</h2>
-      <div id="user-listings" class="space-y-3">
-        <p class="text-center text-sm text-mutedfg py-6">Chargement…</p>
-      </div>
+    <div class="grid gap-5 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] lg:gap-8 items-start">
+      <aside class="bg-white border border-appfg/10 rounded-2xl p-6 text-center lg:sticky lg:top-24">
+        <span class="w-20 h-20 rounded-full bg-brand text-white text-2xl font-bold flex items-center justify-center mx-auto mb-3">${escapeHtml(initials(user.displayName))}</span>
+        <p class="text-xl font-extrabold">${escapeHtml(user.displayName)}</p>
+        ${memberSince ? `<p class="text-xs text-mutedfg mt-1">Membre depuis ${escapeHtml(memberSince)}</p>` : ""}
+        <p class="text-sm text-mutedfg mt-2">${user.activeListings} annonce${user.activeListings === 1 ? "" : "s"} en ligne</p>
+        <img src="/users/${user.id}/qr" alt="QR code du profil"
+             class="w-32 h-32 mx-auto mt-5 rounded-xl border border-appfg/10" />
+        <p class="text-[11px] text-mutedfg mt-2 break-all">${escapeHtml(user.profileUrl ?? "")}</p>
+      </aside>
+
+      <section>
+        <div class="flex items-center justify-between gap-3 mb-3">
+          <h2 class="text-lg font-extrabold">Ses objets</h2>
+          <div id="view-toggle" class="hidden md:flex"></div>
+        </div>
+        <div id="user-listings" class="listing-grid">
+          <p class="col-span-full text-center text-sm text-mutedfg py-8">Chargement…</p>
+        </div>
+      </section>
     </div>
   `;
 
-  const listingsEl = document.getElementById("user-listings");
+  viewMode = mountViewToggle(document.getElementById("view-toggle"), (mode) => {
+    viewMode = mode;
+    renderListings();
+  });
+
   try {
-    const listings = await api.get(`/listings?ownerId=${user.id}`);
-    if (!listings.length) {
-      listingsEl.innerHTML = `<p class="text-center text-sm text-mutedfg py-6">Aucune annonce en ligne pour l'instant.</p>`;
-      return;
-    }
-    listingsEl.innerHTML = listings.map(listingCard).join("");
+    listings = await api.get(`/listings?ownerId=${user.id}`);
+    renderListings();
   } catch (err) {
-    listingsEl.innerHTML = `<p class="text-center text-sm text-red-600 py-6">${escapeHtml(err.message)}</p>`;
+    document.getElementById("user-listings").innerHTML =
+      `<p class="col-span-full text-center text-sm text-red-600 py-6">${escapeHtml(err.message)}</p>`;
   }
 }

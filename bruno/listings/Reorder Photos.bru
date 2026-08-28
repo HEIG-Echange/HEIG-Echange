@@ -1,0 +1,33 @@
+meta {
+  name: Reorder Photos
+  type: http
+  seq: 11
+}
+
+patch {
+  url: {{baseUrl}}/listings/{{listingId}}/photos
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "photoIds": [2, 1]
+  }
+}
+
+docs {
+  Reordonne le carrousel d'une annonce. La photo citee en premier devient la
+  vignette affichee dans la grille.
+
+  photoIds doit contenir EXACTEMENT une fois chaque photo de l'annonce : un
+  ordre partiel laisserait des positions ambigues et renvoie un 400.
+
+  Reserve au proprietaire de l'annonce (ou a un admin).
+}
+
+script:pre-request {
+  if (!bru.getVar("listingId")) {
+    bru.setVar("listingId", 1);
+  }
+}

@@ -1,0 +1,29 @@
+meta {
+  name: Delete Photo
+  type: http
+  seq: 10
+}
+
+delete {
+  url: {{baseUrl}}/listings/{{listingId}}/photos/{{photoId}}
+  body: none
+  auth: none
+}
+
+docs {
+  Retire une photo d'une annonce (204 sans contenu).
+
+  Le fichier est efface du disque et les positions des photos suivantes sont
+  retassees, pour que la premiere photo reste la vignette.
+
+  Reserve au proprietaire de l'annonce (ou a un admin).
+}
+
+script:pre-request {
+  if (!bru.getVar("listingId")) {
+    bru.setVar("listingId", 1);
+  }
+  if (!bru.getVar("photoId")) {
+    bru.setVar("photoId", 1);
+  }
+}

@@ -1,0 +1,43 @@
+meta {
+  name: Update AI Settings
+  type: http
+  seq: 10
+}
+
+put {
+  url: {{baseUrl}}/admin/ai-settings
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "model": "{{aiModel}}",
+    "systemPrompt": "{{aiSystemPrompt}}",
+    "userPrompt": "{{aiUserPrompt}}"
+  }
+}
+
+vars:pre-request {
+  aiModel: Qwen/Qwen2.5-VL-7B-Instruct
+  aiSystemPrompt: 
+  aiUserPrompt: 
+}
+
+docs {
+  Modifie les reglages de l'analyse IA, sans redemarrer l'application.
+
+  Regles par champ :
+    - champ absent          -> laisse tel quel
+    - chaine vide ou null   -> efface la personnalisation, la valeur repart du
+                               defaut (variable d'environnement, sinon code)
+
+  Le prompt d'analyse accepte deux marqueurs remplaces a chaque appel :
+  {{categories}} (les categories reellement en base) et {{conditions}}
+  (les valeurs de l'ENUM item_condition). Les garder, sinon le modele risque
+  de proposer des valeurs que l'application refusera.
+
+  Les memes reglages sont editables dans le navigateur sur /admin-ai.html.
+
+  Reserve aux administrateurs.
+}

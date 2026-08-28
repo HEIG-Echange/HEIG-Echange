@@ -1,0 +1,19 @@
+meta {
+  name: Get Interest Status
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/listings/{{listingId}}/interest
+  body: none
+  auth: none
+}
+
+script:pre-request {
+  // Valeur par defaut si aucune annonce n'a ete creee dans cette session —
+  // modifiable directement dans l'onglet Vars sinon.
+  if (!bru.getVar("listingId")) {
+    bru.setVar("listingId", 1);
+  }
+}

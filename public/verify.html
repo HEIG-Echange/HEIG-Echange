@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Échange — Confirmer mon adresse</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="js/tailwind-setup.js"></script>
+<link rel="stylesheet" href="css/app.css" />
+</head>
+<body class="text-appfg antialiased">
+
+<main class="min-h-screen flex items-center justify-center px-4 py-10 bg-mutedbg">
+  <div class="w-full max-w-md">
+    <div class="text-center mb-6">
+      <span class="inline-flex w-12 h-12 rounded-2xl bg-brand text-white text-xl font-extrabold items-center justify-center">É</span>
+      <p class="text-xs text-mutedfg font-semibold mt-3">HEIG-VD</p>
+      <h1 id="page-title" class="text-2xl font-extrabold -mt-0.5">Confirmez votre adresse</h1>
+      <p id="page-intro" class="text-sm text-mutedfg mt-2">
+        Saisissez le code à 8 chiffres reçu par email.
+      </p>
+    </div>
+
+    <form id="verify-form" class="bg-white border border-appfg/10 rounded-2xl p-5 space-y-4 shadow-sm">
+      <div id="error-box" class="hidden bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-3 py-2.5"></div>
+      <div id="info-box" class="hidden bg-sky-50 border border-sky-200 text-sky-800 text-sm rounded-xl px-3 py-2.5"></div>
+
+      <div>
+        <label for="email-input" class="block text-xs font-bold uppercase tracking-wide mb-1.5">Adresse email</label>
+        <input id="email-input" type="email" required autocomplete="email"
+               placeholder="prenom.nom@heig-vd.ch"
+               class="w-full bg-appbg border border-appfg/15 rounded-xl px-3.5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30" />
+      </div>
+
+      <div>
+        <label for="code-input" class="block text-xs font-bold uppercase tracking-wide mb-1.5">Code de confirmation</label>
+        <input id="code-input" type="text" inputmode="numeric" required maxlength="8" pattern="[0-9]{8}"
+               placeholder="12345678" autocomplete="one-time-code"
+               class="w-full bg-appbg border border-appfg/15 rounded-xl px-3.5 py-3 text-lg tracking-[0.4em] text-center font-bold focus:outline-none focus:ring-2 focus:ring-brand/30" />
+      </div>
+
+      <button id="submit-btn" type="submit"
+              class="w-full bg-brand hover:bg-brand-dark text-white font-bold rounded-xl py-3.5 transition-colors disabled:opacity-50">
+        Confirmer mon adresse
+      </button>
+
+      <button id="resend-btn" type="button"
+              class="w-full text-sm font-bold text-brand rounded-xl py-2.5 hover:bg-brand-light transition-colors disabled:opacity-50">
+        Renvoyer un code
+      </button>
+    </form>
+
+    <p class="text-center text-sm text-mutedfg mt-5">
+      <a href="login.html" class="font-bold text-brand hover:underline">Retour à la connexion</a>
+    </p>
+  </div>
+</main>
+
+<script type="module" src="js/pages/verify.js"></script>
+</body>
+</html>

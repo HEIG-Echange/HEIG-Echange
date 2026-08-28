@@ -94,6 +94,7 @@ jobs:
 
 
   ## Staging et production
+
   staging:
     needs: verify
     if: >-

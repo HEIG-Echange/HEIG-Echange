@@ -1,0 +1,17 @@
+meta {
+  name: 06 Logout
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/auth/logout
+  body: none
+  auth: none
+}
+
+tests {
+  test("renvoie 204", function () {
+    expect(res.getStatus()).to.equal(204);
+  });
+}

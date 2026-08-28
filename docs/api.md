@@ -7,24 +7,72 @@ Collection Bruno correspondante : `bruno/` , voir `bruno/README.md` .
 
 En local : `http://localhost:3000`
 
-Le domaine public (QR codes, liens de partage/invitation) est configurable via
-la variable d'environnement `PUBLIC_BASE_URL` (voir `.env.example`).
+Le domaine public est configurable via la variable d'environnement
+`PUBLIC_BASE_URL` (voir `.env.example`). Il alimente **tout lien destiné à
+sortir de l'application** : QR codes (profil et annonce), `shareUrl` des
+annonces, URL absolues des images, liens contenus dans les emails, lien
+d'invitation. L'API n'utilise jamais l'hôte de la requête à la place — un lien
+partagé doit rester valable hors du navigateur qui l'a produit. **En
+staging/prod, cette variable doit impérativement pointer sur le vrai domaine.**
 
 ### `GET /config`
 
-Config publique consommee par le frontend.
+Config publique consommée par le frontend : lui évite de dupliquer des valeurs
+qui vivent côté serveur.
 
-- `200` → `{ publicBaseUrl }`
+- `200` → `{ publicBaseUrl, maxPhotosPerListing, maxPhotoSizeBytes, acceptedPhotoMimeTypes, reverificationIntervalDays }`
+
+`maxPhotoSizeBytes` et `acceptedPhotoMimeTypes` sont les limites réellement
+appliquées à l'upload : le frontend s'en sert pour refuser un fichier au
+moment où l'utilisateur le choisit, plutôt que de laisser l'envoi échouer en
+`400` une fois l'annonce publiée.
 
 ## Authentification - `/auth`
 
 L'authentification actuelle est **email + mot de passe** (bcrypt), via
 `express-session` : un cookie de session (`connect.sid`) est posé au
-register/login et doit être renvoyé à chaque requête protégée. 
+login et doit être renvoyé à chaque requête protégée.
+
+Un compte fraîchement créé n'est **pas** utilisable immédiatement : l'adresse
+email doit d'abord être vérifiée par un code reçu par email (voir
+`POST /auth/verify-email` ci-dessous). `POST /auth/login` refuse la connexion
+tant que ce n'est pas fait.
+
+### Reconfirmation tous les 6 mois
+
+Une confirmation d'adresse **ne vaut que 180 jours**. Passé ce délai le compte
+est *suspendu* :
+
+- `POST /auth/login` répond `403` avec `code: "EMAIL_REVERIFICATION_REQUIRED"`
+  et envoie immédiatement un nouveau code ;
+- une session déjà ouverte est coupée : `GET /auth/me` et toute route protégée
+  répondent `403` avec le même code ;
+- **ses annonces disparaissent des listes publiques** (`GET /listings`,
+  `GET /listings/:id`, QR de l'annonce) et son profil public renvoie `404`.
+
+Rien n'est supprimé : tout réapparaît dès que l'adresse est reconfirmée via
+`POST /auth/verify-email`.
+
+Toutes les réponses décrivant le compte connecté (`register`, `login`,
+`verify-email`, `GET /auth/me`, `PATCH /auth/me`) portent le même bloc d'état :
+
+| Champ | Type | Sens |
+|---|---|---|
+| `emailVerified` | boolean | l'adresse a déjà été confirmée au moins une fois |
+| `emailStatus` | `unverified` \| `verified` \| `expiring` \| `expired` | état courant |
+| `emailVerifiedAt` | string \| null | date de la dernière confirmation |
+| `emailExpiresAt` | string \| null | date de péremption de cette confirmation |
+| `daysUntilEmailExpiry` | number \| null | jours restants (`0` si périmé) |
+| `reverificationIntervalDays` | number | durée de validité (180) |
+
+`expiring` signifie « valable, mais périmé dans moins de 14 jours » : c'est ce
+qui déclenche le bandeau d'avertissement dans l'interface et le rappel par
+email. Le délai est une constante applicative
+(`src/auth/emailVerification.ts`), pas une variable d'environnement.
 
 ### `POST /auth/register`
 
-Crée un compte et ouvre la session.
+Crée un compte (non vérifié) et envoie un code de vérification par email.**N'ouvre pass la session**
 
 | Champ | Type | Requis | Contrainte |
 |---|---|---|---|
@@ -32,12 +80,57 @@ Crée un compte et ouvre la session.
 | `displayName` | string | oui | non vide |
 | `password` | string | oui | 8 caractères minimum |
 
-- `201` → `{ id, email, displayName, role: "user" }`
+- `201` → `{ id, email, displayName, role: "user", message, codeTtlMinutes }`
+  + bloc d'état email (+ `devVerificationCode` — voir encadré ci-dessous)
 - `400` - champs manquants/invalides
 - `403` - domaine d'email non autorisé
 - `409` - un compte existe déjà pour cet email
 
 Les comptes admin doivent être crée en base de données.
+
+> **`devVerificationCode` (mode test uniquement).** Quand la variable
+> d'environnement `EXPOSE_VERIFICATION_CODE_FOR_TESTING` vaut exactement
+> `"true"`, la réponse inclut aussi le code de vérification en clair, pour
+> pouvoir tester sans accéder à une vraie boîte mail (suite Bruno,
+> `scripts/seed_demo_data.py`). `compose.dev.yaml` l'active déjà.
+> **Ne jamais l'activer en staging exposé ni en production** : n'importe qui
+> pourrait confirmer l'adresse d'un tiers.
+
+### `POST /auth/verify-email`
+
+Confirme l'adresse email avec le code reçu (8 chiffres, valable 15 minutes,
+usage unique).
+
+Sert **aussi** à la reconfirmation semestrielle : tant qu'un code est en
+attente sur le compte, il est consommé, même si l'adresse avait déjà été
+confirmée par le passé.
+
+| Champ | Type | Requis |
+|---|---|---|
+| `email` | string | oui |
+| `code` | string | oui |
+
+- `200` → bloc d'état email + `{ reactivated }` — `reactivated: true` quand le
+  compte sortait de suspension (un email de réactivation lui est envoyé)
+- `400` - champs manquants, ou code invalide/expiré
+- `404` - aucun compte pour cet email
+- `409` - rien à confirmer (adresse valide et aucun code en attente)
+
+### `POST /auth/resend-code`
+
+Régénère et renvoie un code de vérification (code perdu, expiré, ou
+reconfirmation à faire).
+
+| Champ | Type | Requis |
+|---|---|---|
+| `email` | string | oui |
+
+- `200` → `{ message, emailStatus, codeTtlMinutes }` (+ `devVerificationCode`
+  en mode test, même règle que `POST /auth/register`)
+- `400` - `email` manquant
+- `404` - aucun compte pour cet email
+- `409` - l'adresse est valide et pas encore proche de l'échéance
+  (`emailStatus: "verified"`) : il n'y a rien à reconfirmer
 
 ### `POST /auth/login`
 
@@ -46,10 +139,15 @@ Les comptes admin doivent être crée en base de données.
 | `email` | string | oui |
 | `password` | string | oui |
 
-- `200` → `{ id, email, displayName, role }`
+- `200` → `{ id, email, displayName, role }` + bloc d'état email
 - `400` - champs manquants
 - `401` - mot de passe incorrect
-- `403` - compte bloqué (`is_blocked`)
+- `403` - l'un des trois cas suivants :
+  - `code: "EMAIL_NOT_VERIFIED"` — inscription jamais confirmée ;
+  - `code: "EMAIL_REVERIFICATION_REQUIRED"` — confirmation vieille de plus de
+    6 mois. Un nouveau code est envoyé dans la foulée, la réponse porte aussi
+    `email` (et `devVerificationCode` en mode test) ;
+  - compte bloqué par un admin (`is_blocked`).
 - `404` - aucun compte pour cet email
 
 ### `POST /auth/logout`
@@ -62,8 +160,11 @@ Détruit la session serveur et le cookie.
 
 Renvoi le ompte lié à la session en cours.
 
-- `200` → `{ id, email, displayName, avatarUrl, role }`
+- `200` → `{ id, email, displayName, avatarUrl, role }` + bloc d'état email
 - `401` - pas connecté, ou compte bloqué
+- `403` - compte suspendu, adresse à reconfirmer
+  (`code: "EMAIL_REVERIFICATION_REQUIRED"`) : la session reste ouverte mais
+  l'accès est coupé jusqu'à la reconfirmation
 
 
 ### `PATCH /auth/me` - connecté
@@ -77,7 +178,7 @@ Modifie le profil. Mise à jour partielle : n'envoyer que les champs à changer.
 | `password` | string | non - 8 caractères minimum, même règle que `POST /auth/register` |
 | `currentPassword` | string | **oui si `password` est fourni** |
 
-- `200` → `{ id, email, displayName, avatarUrl, role }`
+- `200` → `{ id, email, displayName, avatarUrl, role }` + bloc d'état email
 - `400` - aucun champ fourni, champ invalide (`displayName` vide,
   `avatarUrl` ni string ni null, `password` trop court), ou `password`
   fourni sans `currentPassword`
@@ -109,21 +210,36 @@ Crée une annonce, `owner_id` vient de la session.
 | `itemCondition` | `"neuf" \| "tres_bon" \| "bon" \| "usage" \| "a_reparer"` | oui |
 | `location` | string \| null | non - lieu libre (texte) |
 
-- `201` → `{ id, ownerId, categoryId, title, description, itemCondition, location, status: "available" }`
+- `201` → `{ id, ownerId, categoryId, title, description, itemCondition, location, status: "available", photoCount: 0, shareUrl, qrUrl }`
 - `400` - champs manquants/invalides, ou `categoryId` inexistant
 - `401` - pas connecté
+- `403` - compte suspendu (adresse à reconfirmer)
 
 ### `PATCH /listings/:id` - connecté, propriétaire ou admin
 
-Mise à jour partielle : mêmes champs que la création (`categoryId`,
-`title`, `description`, `itemCondition`, `location`), tous optionnels mais au
-moins un requis. `location` accepte `null` pour effacer le lieu.
+Modifier une annonce **après publication**. Mise à jour partielle : tous les
+champs sont optionnels, mais au moins un est requis.
+
+| Champ | Type | Effet |
+|---|---|---|
+| `categoryId` | number | change la catégorie |
+| `title` | string | non vide |
+| `description` | string | non vide |
+| `itemCondition` | enum | même liste qu'à la création |
+| `location` | string \| null | `null` efface le lieu |
+| `status` | `"available" \| "reserved" \| "closed"` | marque l'objet réservé ou donné |
+
+`status` pilote aussi `closed_at` : renseigné au passage en `closed`, remis à
+`NULL` si l'annonce est remise en ligne. Une annonce `closed` reste visible
+(signalée comme telle) — pour la retirer complètement, utiliser
+`DELETE /listings/:id`.
 
 - `200` → l'annonce mise à jour (même forme que `GET /listings/:id` sans le
   tableau `photos`)
-- `400` - aucun champ fourni, champ invalide, ou `categoryId` inexistant
+- `400` - aucun champ fourni, champ invalide, `status` inconnu, ou
+  `categoryId` inexistant
 - `401` - pas connecté
-- `403` - ni propriétaire ni admin
+- `403` - ni propriétaire ni admin, ou compte suspendu
 - `404` - annonce introuvable (ou déjà supprimée)
 
 ### `GET /listings`
@@ -137,46 +253,159 @@ combinables :
 | `ownerId` | number | filtre par propriétaire (utilisé pour "mes objets" sur le profil) |
 | `q` | string | recherche plein texte (`title` + `description`, FULLTEXT MariaDB) |
 
-- `200` → tableau d'annonces, `photoUrl` = première photo (vignette) ou
-  `null`, `location` (lieu libre ou `null`), triées par date de création
-  décroissante
+- `200` → tableau d'annonces, triées par date de création décroissante
 - `400` - `categoryId`/`ownerId` fourni mais non numérique
+
+Chaque annonce porte, en plus de ses champs métier :
+
+| Champ | Sens |
+|---|---|
+| `photoUrl` | chemin **relatif** de la vignette (première photo) ou `null` — c'est ce qu'affiche le frontend |
+| `photoAbsoluteUrl` | même image en **URL absolue** (`PUBLIC_BASE_URL`), pour un partage, un `og:image`, un email |
+| `photoCount` | nombre total de photos — alimente la pastille « +N » des cartes |
+| `shareUrl` | URL publique de la fiche, à partager telle quelle |
+| `qrUrl` | URL du QR code SVG de l'annonce |
 
 > **Confidentialité des contacts.** `ownerName` et `ownerEmail` ne sont
 > renseignés que si la requête provient d'un utilisateur **connecté**. Pour un
 > visiteur anonyme, ces deux champs valent `null` (l'annonce reste visible, mais
 > pas les informations de contact du donneur).
 
+> **Propriétaires suspendus.** Seules les annonces dont le propriétaire est un
+> compte actif sont renvoyées : ni supprimé, ni bloqué, ni suspendu faute
+> d'avoir reconfirmé son adresse depuis 6 mois. Les annonces ne sont pas
+> supprimées pour autant — elles réapparaissent dès la reconfirmation.
+
 ### `GET /listings/:id`
 
 Fiche détail, avec le tableau complet des photos. **Accessible sans être
-connecté** (mêmes règles de masquage `ownerName`/`ownerEmail` que ci-dessus).
+connecté** (mêmes règles de masquage `ownerName`/`ownerEmail` et de
+propriétaire actif que ci-dessus).
 
-- `200` → annonce (+ `location`, `ownerEmail`) + `photos: [{ id, url, position }]`
+- `200` → annonce (mêmes champs que `GET /listings`) +
+  `photos: [{ id, url, absoluteUrl, position }]`, ordonnées par `position`
+  (la position 0 est la vignette)
 - `400` - id non numérique
+- `404` - annonce introuvable, ou propriétaire suspendu/bloqué
+
+### `GET /listings/:id/qr`
+
+QR code (SVG) pointant vers la fiche publique de l'annonce
+(`PUBLIC_BASE_URL/listing.html?id=:id`). **Accessible sans être connecté.**
+
+- `200` → `image/svg+xml` (`Cache-Control: public, max-age=3600`)
+- `400` - id non numérique
+- `404` - annonce introuvable, ou propriétaire suspendu/bloqué
+
+### `GET /listings/interested` - connecté
+
+Ids des annonces (encore actives) sur lesquelles l'utilisateur connecté a
+manifesté son intérêt.
+
+- `200` → `[listingId, ...]` (tableau de nombres, triés par date d'inscription
+  décroissante)
+- `401` - pas connecté
+
+### `GET /listings/:id/interest` - connecté
+
+État de l'intérêt du visiteur connecté pour cette annonce.
+Renvoi true si l'utilisateur a deja marque son interet pr cet article
+
+- `200` → `{ interested: boolean }`
+- `400` - id non numérique
+- `401` - pas connecté
+
+### `POST /listings/:id/interest` - connecté
+
+Marquer l'utilisateur comme interessé par l'article
+
+- `201` → `{ interested: true }` (première fois)
+- `200` → `{ interested: true }` (déjà enregistré)
+- `400` - id non numérique, ou tentative sur sa propre annonce
+- `401` - pas connecté
 - `404` - annonce introuvable
+
+### `DELETE /listings/:id/interest` - connecté
+
+Enleve l'interet de l'utilisateur
+
+- `204`, pas de body
+- `400` - id non numérique
+- `401` - pas connecté
+- `404` - aucun intérêt enregistré pour cette annonce (par ce compte)
 
 ### `POST /listings/:id/photos` - connecté, propriétaire ou admin
 
-Ajoute une photo à une annonce. Corps **multipart/form-data**, champ `photo`
-(image jpeg/png/webp/gif, 5 Mo max). Le fichier est stocké sur disque (volume
-Docker `uploads-data`) et servi via `/uploads/...`.
+Ajoute **une ou plusieurs** photos à une annonce. Corps
+**multipart/form-data** ; deux noms de champ sont acceptés :
 
-- `201` → `{ id, url, position }`
-- `400` - fichier manquant/invalide, id non numérique, image trop volumineuse
+| Champ | Usage |
+|---|---|
+| `photos` | plusieurs fichiers dans la même requête — ce qu'envoie le formulaire web |
+| `photo` | un seul fichier — forme historique, toujours supportée |
+
+Formats jpeg/png/webp/gif, 5 Mo par fichier, **10 photos maximum par annonce**
+(valeur exposée par `GET /config`). Les fichiers partent dans le stockage objet
+**MinIO** (bucket privé, voir « Stockage des images » plus bas) et sont servis
+via `/uploads/<clé>`. Les positions se suivent : la photo en position 0 sert de
+vignette dans la grille.
+
+L'objet est écrit dans le stockage **avant** l'insertion en base : si l'écriture
+échoue, aucune ligne ne pointe vers une image inexistante.
+
+- `201` → un seul fichier envoyé : `{ id, url, absoluteUrl, position }` (forme
+  historique) ; plusieurs fichiers : `{ photos: [{ id, url, absoluteUrl, position }] }`
+- `400` - fichier manquant/invalide, id non numérique, image trop volumineuse,
+  ou plafond de 10 photos dépassé
 - `401` - pas connecté
-- `403` - ni propriétaire ni admin
+- `403` - ni propriétaire ni admin, ou compte suspendu
+- `404` - annonce introuvable
+- `502` - stockage d'images indisponible (MinIO injoignable)
+
+### `DELETE /listings/:id/photos/:photoId` - connecté, propriétaire ou admin
+
+Retire une photo d'une annonce. L'objet est effacé du stockage (uniquement si
+l'URL désigne bien une image de la plateforme : une URL externe ou trafiquée ne
+supprime rien) et les positions restantes sont retassées pour rester contiguës.
+
+- `204`, pas de body
+- `400` - id non numérique
+- `401` - pas connecté
+- `403` - ni propriétaire ni admin, ou compte suspendu
+- `404` - annonce ou photo introuvable
+
+### `PATCH /listings/:id/photos` - connecté, propriétaire ou admin
+
+Réordonne le carrousel. La première photo citée devient la vignette.
+
+| Champ | Type | Requis |
+|---|---|---|
+| `photoIds` | number[] | oui - **exactement une fois chaque photo de l'annonce** |
+
+Un ordre partiel est refusé : il laisserait des positions ambiguës entre les
+photos citées et les autres.
+
+- `200` → `{ photos: [{ id, url, absoluteUrl, position }] }`
+- `400` - `photoIds` absent, mal formé, ou incomplet
+- `401` - pas connecté
+- `403` - ni propriétaire ni admin, ou compte suspendu
 - `404` - annonce introuvable
 
 ### `POST /listings/ai/analyze` - connecté
 
-Envoie une photo (multipart, champ `photo`) à une IA (Claude vision) et renvoie
-une pré-saisie pour le formulaire d'annonce. **Ne crée aucune annonce.**
+Envoie une photo (multipart, champ `photo`) à un modèle vision hébergé sur
+**Hugging Face** et renvoie une pré-saisie pour le formulaire d'annonce.
+**Ne crée aucune annonce.** La photo est supprimée du serveur juste après
+l'analyse.
+
+Le modèle et les prompts sont modifiables en ligne par un administrateur (voir
+`GET`/`PUT /admin/ai-settings`) : la formulation peut être ajustée sans
+redéploiement.
 
 - `200` → `{ categorySlug, categoryId, itemCondition, description }`
 - `400` - fichier manquant/invalide
 - `401` - pas connecté
-- `503` - analyse IA non configurée (`ANTHROPIC_API_KEY` absente)
+- `503` - analyse IA non configurée (`HUGGINGFACE_API_KEY` absente)
 - `502` - l'appel à l'IA a échoué
 
 ### `DELETE /listings/:id` - connecté, propriétaire ou admin
@@ -199,6 +428,46 @@ dans `moderation_logs` (`action: "delete_listing"`, `details: { reason }`).
 
 ---
 
+## Stockage des images - `/uploads`
+
+Les photos d'annonces vivent dans **MinIO**
+([github.com/minio/minio](https://github.com/minio/minio)), un serveur de
+stockage objet compatible S3 lancé à côté de l'application
+(service `minio` de `compose.yaml`). L'application n'écrit donc plus d'images
+dans son propre conteneur : elle redevient sans état, plusieurs instances
+peuvent servir les mêmes photos, et la sauvegarde des images ne dépend plus
+d'un volume attaché à un seul hôte.
+
+Le bucket est **privé** et l'API S3 (port 9000) n'est jamais publiée : les
+images sont relayées par l'application.
+
+### `GET /uploads/:clé` - public
+
+Renvoie l'image. La clé est celle contenue dans le champ `url` des photos
+(`/uploads/listings/2026/08/1787-4856fa27.png`) — aucun client n'a besoin de la
+construire lui-même.
+
+- `200` → les octets de l'image, avec `Content-Type`, `Content-Length`, `ETag`,
+  `Last-Modified` et `Cache-Control: public, max-age=31536000, immutable`
+  (une clé est aléatoire et son contenu ne change jamais)
+- `304` - le navigateur a déjà l'image (`If-None-Match`)
+- `404` - image inconnue, ou clé invalide (toute tentative de remontée de
+  chemin est refusée)
+
+Les photos téléversées **avant** le passage à MinIO ont une URL plate
+(`/uploads/1712-abcd.jpg`) et sont relues depuis l'ancien volume `uploads-data`
+tant qu'il est monté : rien à migrer à la main, et l'affichage reste identique.
+
+### Configuration
+
+| Variable | Rôle |
+|---|---|
+| `MINIO_ENDPOINT` | hôte du serveur S3. **Vide ⇒ repli sur le disque** (`UPLOAD_DIR`), ce qui permet de lancer les tests et un serveur local sans MinIO |
+| `MINIO_PORT`, `MINIO_USE_SSL` | port et TLS (9000 / `false` dans Compose) |
+| `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY` | identifiants — obligatoires dès que `MINIO_ENDPOINT` est défini |
+| `MINIO_BUCKET` | bucket, créé automatiquement au démarrage s'il manque |
+| `MINIO_REGION` | région S3 (`us-east-1` par défaut) |
+
 ## Catégories - `/categories`
 
 ### `GET /categories`
@@ -219,7 +488,8 @@ aucune information de contact (email).
 
 - `200` → `{ id, displayName, avatarUrl, createdAt, activeListings, profileUrl }`
 - `400` - id non numérique
-- `404` - utilisateur introuvable (ou supprimé/bloqué)
+- `404` - utilisateur introuvable, supprimé, bloqué, ou suspendu (adresse non
+  reconfirmée depuis 6 mois)
 
 ### `GET /users/:id/qr`
 
@@ -228,7 +498,8 @@ Le domaine encodé provient de la variable d'environnement `PUBLIC_BASE_URL`.
 
 - `200` → image `image/svg+xml`
 - `400` - id non numérique
-- `404` - utilisateur introuvable (ou supprimé/bloqué)
+- `404` - utilisateur introuvable, supprimé, bloqué, ou suspendu (adresse non
+  reconfirmée depuis 6 mois)
 
 ---
 
@@ -332,5 +603,68 @@ pour l'historique des publications d'un utilisateur.
 - `200` → tableau de `{ id, ownerId, ownerName, title, status, createdAt, closedAt, deletedAt }`, triés par date décroissante
 - `400` - `ownerId` invalide
 
+### `GET /admin/suspended-accounts`
+
+Comptes dont l'adresse email n'est pas (ou plus) confirmée, donc suspendus :
+connexion refusée et annonces masquées des listes publiques.
+
+- `200` → tableau de
+  `{ id, email, displayName, emailStatus, emailVerifiedAt, lastReminderAt, hiddenListings }`
+  — `emailStatus` vaut `"unverified"` (jamais confirmé) ou `"expired"`
+  (confirmation de plus de 6 mois), `hiddenListings` compte les annonces
+  rendues invisibles
+
+### `POST /admin/jobs/email-reverification`
+
+Déclenche à la main le balayage de reverification. Le même balayage tourne
+automatiquement une fois par jour (`src/server.ts`) ; cette route sert à le
+forcer depuis un cron externe ou pour une démo.
+
+Pour chaque compte concerné, le job pose un nouveau code et envoie soit un
+rappel (14 jours avant l'échéance), soit une notification de suspension (une
+fois l'échéance passée). Il est idempotent : un second appel dans la foulée ne
+renvoie pas les mêmes emails.
+
+- `200` → `{ scanned, reminders, suspensions }`
+
+> **La suspension ne dépend pas de ce job.** Elle se déduit de
+> `email_verified_at` à chaque requête, et s'applique donc même si le job n'a
+> jamais tourné. Le job se contente de prévenir les utilisateurs par email.
+
+
+### `GET /admin/ai-settings`
+
+Réglages de l'analyse IA des photos. Trois valeurs sont personnalisables : le
+modèle Hugging Face, le prompt système et le prompt d'analyse. Elles vivent
+dans la table `app_settings`, éditables depuis `/admin-ai.html`.
+
+Ordre de précédence, du plus fort au plus faible : **base de données** >
+**variable d'environnement** (`AI_MODEL`, `AI_SYSTEM_PROMPT`, `AI_USER_PROMPT`)
+> **défaut du code**.
+
+- `200` → `{ provider, configured, effective, defaults, overridden, placeholders }`
+  - `provider` - `"huggingface"`
+  - `configured` - le serveur a-t-il un jeton (`HUGGINGFACE_API_KEY`) ? Sinon
+    `POST /listings/ai/analyze` répond `503`
+  - `effective` - `{ model, systemPrompt, userPrompt }` réellement utilisés
+  - `defaults` - les mêmes champs, sans la personnalisation
+  - `overridden` - un booléen par champ : la valeur vient-elle de la base ?
+  - `placeholders` - marqueurs remplacés dans le prompt d'analyse :
+    `{{categories}}` (les catégories réellement en base) et `{{conditions}}`
+    (les valeurs de l'ENUM `item_condition`)
+
+### `PUT /admin/ai-settings`
+
+Corps : `{ model?, systemPrompt?, userPrompt? }`.
+
+- champ **absent** → laissé tel quel
+- champ à `null` ou à la chaîne vide → la personnalisation est **effacée**, la
+  valeur repart du défaut
+
+Les nouveaux réglages s'appliquent dès l'analyse suivante, sans redémarrage.
+
+- `200` → `{ effective, defaults }`
+- `400` - un champ fourni n'est ni une chaîne ni `null`
+- `401` / `403` - pas connecté / pas administrateur
 ---
 

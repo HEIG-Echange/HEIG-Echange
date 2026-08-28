@@ -1,6 +1,10 @@
 # Dépendances
 node_modules/
 
+# Images uploadees en execution locale (UPLOAD_DIR par defaut). En Docker
+# elles vivent dans le volume "uploads-data", jamais dans le depot.
+uploads/
+
 # Builds
 dist/
 build/

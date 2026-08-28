@@ -11,10 +11,10 @@
     "start": "node dist/server.js"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.117.1",
     "bcryptjs": "^3.0.3",
     "express": "^5.2.1",
     "express-session": "^1.19.0",
+    "minio": "^8.0.7",
     "multer": "^2.2.0",
     "mysql2": "^3.23.2",
     "qrcode": "^1.5.4"

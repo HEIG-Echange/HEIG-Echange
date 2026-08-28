@@ -1,17 +1,65 @@
-/* Petits utilitaires non couverts par Tailwind (charge via CDN, sans plugins). */
+/* ===========================================================================
+   HEIG-Echange — feuille de style partagee.
 
-.line-clamp-1 {
+   Tailwind est charge par CDN (pas de bundler dans ce projet) : on ne met ici
+   que ce que Tailwind sans plugin ne sait pas faire, plus la structure du
+   "shell" applicatif, qui change de forme selon la taille d'ecran.
+
+   Trois paliers, alignes sur la maquette Figma :
+
+     < 768px  (mobile)   header compact, une colonne, barre de nav en bas
+                         avec le bouton "+" flottant.
+     >= 768px (tablette) barre laterale en icones, contenu sur plusieurs
+                         colonnes, plus de barre du bas.
+     >= 1024px (desktop) barre laterale deployee avec libelles, contenu large
+                         centre, choix entre affichage grille et compact.
+
+   Le HTML est le meme partout : c'est cette feuille qui deplace la navigation.
+   =========================================================================== */
+
+:root {
+  --brand: #c8102e;
+  --brand-dark: #a30d25;
+  --brand-light: #f9e4e7;
+  --appbg: #f5f4f0;
+  --appfg: #1a1816;
+  --secondarybg: #f0ede8;
+  --mutedbg: #e8e5e0;
+  --mutedfg: #7a7670;
+  --border: rgba(26, 24, 22, 0.1);
+
+  --sidebar-w: 15rem; /* 240px, palier desktop */
+  --sidebar-w-compact: 4.5rem; /* 72px, palier tablette */
+  --topbar-h: 4.5rem;
+  --bottomnav-h: 4rem;
+}
+
+html,
+body {
+  background: var(--mutedbg);
+}
+
+body {
+  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* --- Utilitaires absents du CDN Tailwind (plugins non charges) ----------- */
+
+.line-clamp-1,
+.line-clamp-2,
+.line-clamp-3 {
   display: -webkit-box;
-  -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-
+.line-clamp-1 {
+  -webkit-line-clamp: 1;
+}
 .line-clamp-2 {
-  display: -webkit-box;
   -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+}
+.line-clamp-3 {
+  -webkit-line-clamp: 3;
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -22,19 +70,393 @@
   scrollbar-width: none;
 }
 
-/* Cadre "app mobile" centre sur grand ecran, plein ecran sur mobile. */
+/* ===========================================================================
+   Shell applicatif
+   =========================================================================== */
+
 .app-shell {
-  max-width: 480px;
-  margin: 0 auto;
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--appbg);
   display: flex;
   flex-direction: column;
 }
 
-@media (min-width: 640px) {
+/* Zone de contenu : pleine largeur sur mobile, bornee et centree ensuite pour
+   ne pas etirer des lignes de texte sur toute la largeur d'un 27 pouces. */
+.app-main {
+  flex: 1;
+  width: 100%;
+  padding-bottom: calc(var(--bottomnav-h) + 1.5rem);
+}
+
+.app-container {
+  width: 100%;
+  max-width: 80rem;
+  margin: 0 auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+/* --- Navigation ---------------------------------------------------------- */
+
+/* Barre du bas : visible uniquement sur mobile. */
+.bottom-nav {
+  position: sticky;
+  bottom: 0;
+  z-index: 30;
+  height: var(--bottomnav-h);
+  background: #fff;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: stretch;
+  padding: 0 0.5rem;
+}
+
+/* Barre laterale : masquee sur mobile, affichee a partir de la tablette. */
+.side-nav {
+  display: none;
+}
+
+@media (min-width: 768px) {
   .app-shell {
-    min-height: 100dvh;
-    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
+    /* La barre laterale est en position fixe : on decale tout le contenu. */
+    padding-left: var(--sidebar-w-compact);
+  }
+
+  .bottom-nav {
+    display: none;
+  }
+
+  .app-main {
+    padding-bottom: 3rem;
+  }
+
+  .side-nav {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 40;
+    width: var(--sidebar-w-compact);
+    background: #fff;
+    border-right: 1px solid var(--border);
+    padding: 1rem 0.5rem;
+    gap: 0.25rem;
+  }
+
+  /* Au palier tablette on ne garde que les icones : pas la place pour plus. */
+  .side-nav .nav-label {
+    display: none;
+  }
+
+  .side-nav .nav-item {
+    justify-content: center;
+  }
+
+  .app-container {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .app-shell {
+    padding-left: var(--sidebar-w);
+  }
+
+  .side-nav {
+    width: var(--sidebar-w);
+    padding: 1.5rem 0.75rem;
+  }
+
+  .side-nav .nav-label {
+    display: inline;
+  }
+
+  .side-nav .nav-item {
+    justify-content: flex-start;
+  }
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 0.85rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--mutedfg);
+  transition: background-color 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.nav-item:hover {
+  background: var(--secondarybg);
+  color: var(--appfg);
+}
+
+.nav-item[aria-current="page"] {
+  background: var(--brand-light);
+  color: var(--brand);
+}
+
+.nav-icon {
+  flex: 0 0 1.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ===========================================================================
+   Grille d'annonces — deux densites d'affichage
+   =========================================================================== */
+
+/* Mode "grille" : cartes avec grande photo. Une colonne sur mobile, puis on
+   ajoute des colonnes a mesure que la place le permet. */
+.listing-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .listing-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .listing-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1440px) {
+  .listing-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* Mode "compact" : une ligne par annonce, vignette a gauche. Sur desktop on
+   passe a deux colonnes de lignes pour exploiter la largeur sans allonger la
+   page inutilement. */
+.listing-grid.is-compact {
+  grid-template-columns: 1fr;
+  gap: 0.5rem;
+}
+
+@media (min-width: 1280px) {
+  .listing-grid.is-compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Le bouton "+" flottant de la barre du bas mord sur la barre : il doit
+   pouvoir deborder vers le haut. */
+.fab {
+  width: 3rem;
+  height: 3rem;
+  margin-top: -1.25rem;
+  border-radius: 9999px;
+  background: var(--brand);
+  color: #fff;
+  font-size: 1.5rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 20px rgba(200, 16, 46, 0.35);
+}
+
+/* ===========================================================================
+   Fiche annonce : empilee sur mobile, deux colonnes sur desktop (galerie a
+   gauche, informations et actions collantes a droite).
+   =========================================================================== */
+
+.listing-detail {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 1024px) {
+  .listing-detail {
+    grid-template-columns: minmax(0, 1.4fr) minmax(20rem, 1fr);
+    gap: 2.5rem;
+    align-items: start;
+  }
+
+  .listing-detail .detail-aside {
+    position: sticky;
+    top: 1.5rem;
+  }
+}
+
+/* Galerie : carrousel a defilement horizontal sur mobile, mosaique sur
+   desktop ou la place permet de tout montrer d'un coup. */
+.gallery-track {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  border-radius: 1rem;
+}
+
+.gallery-track > * {
+  flex: 0 0 100%;
+  scroll-snap-align: center;
+}
+
+/* Formulaires : une colonne sur mobile, deux sur desktop. */
+.form-grid {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 1024px) {
+  .form-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 1.5rem 2rem;
+  }
+
+  .form-grid .form-full {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Zone de depot des photos : cliquable, focalisable au clavier, et surlignee
+   pendant un glisser-deposer. */
+.photo-dropzone {
+  display: block;
+  width: 100%;
+  border: 2px dashed var(--border);
+  border-radius: 1rem;
+  padding: 2rem 1rem;
+  text-align: center;
+  cursor: pointer;
+  background: #fff;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.photo-dropzone:hover,
+.photo-dropzone:focus-visible {
+  border-color: var(--brand);
+}
+
+.photo-dropzone.is-dragging {
+  border-color: var(--brand);
+  background: var(--brand-light);
+}
+
+/* Quota atteint : la zone reste accessible (le message d'erreur explique
+   pourquoi rien ne s'ajoute) mais ne s'annonce plus comme une invitation. */
+.photo-dropzone.is-full {
+  opacity: 0.55;
+}
+
+/* Vignettes de photos selectionnees / existantes, avec bouton de retrait. */
+.photo-thumb {
+  position: relative;
+  width: 5.5rem;
+  height: 5.5rem;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--mutedbg);
+  flex: 0 0 auto;
+}
+
+.photo-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photo-thumb .thumb-remove {
+  position: absolute;
+  top: 0.25rem;
+  right: 0.25rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 9999px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 0.75rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.photo-thumb .thumb-cover {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-align: center;
+  padding: 0.15rem 0;
+}
+
+/* Fleches de reordonnancement : la premiere photo de la liste est la vignette
+   de l'annonce, il faut pouvoir la choisir sans tout re-televerser. */
+.photo-thumb .thumb-move {
+  position: absolute;
+  left: 0.25rem;
+  bottom: 0.25rem;
+  display: flex;
+  gap: 0.15rem;
+}
+
+.photo-thumb .thumb-move button {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 9999px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 0.8rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.photo-thumb .thumb-move button:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+/* La vignette laisse la place aux fleches, sinon les deux se superposent. */
+.photo-thumb .thumb-cover {
+  padding-left: 2.9rem;
+}
+
+/* Petit menu de partage ancre sous son bouton. */
+.share-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.5rem);
+  z-index: 50;
+  width: 17rem;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.14);
+  padding: 0.75rem;
+}
+
+@media print {
+  .side-nav,
+  .bottom-nav {
+    display: none;
+  }
+  .app-shell {
+    padding-left: 0;
   }
 }

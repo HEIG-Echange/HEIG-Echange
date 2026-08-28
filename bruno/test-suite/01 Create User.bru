@@ -34,5 +34,14 @@ tests {
   test("renvoie le compte cree avec le bon email", function () {
     expect(res.getBody().email).to.equal(bru.getVar("testEmail"));
     expect(res.getBody().role).to.equal("user");
+    expect(res.getBody().emailVerified).to.equal(false);
   });
+}
+
+script:post-response {
+  // Necessite EXPOSE_VERIFICATION_CODE_FOR_TESTING=true (.env) — sinon
+  // l'etape "02 Verify Email" echouera faute de code recupere ici.
+  if (res.body && res.body.devVerificationCode) {
+    bru.setVar("devVerificationCode", res.body.devVerificationCode);
+  }
 }
