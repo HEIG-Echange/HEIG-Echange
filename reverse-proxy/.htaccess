@@ -1,3 +1,31 @@
+# Équivalent de .user.ini pour les hébergements qui font tourner PHP en module
+# Apache (mod_php), où .user.ini est ignoré. Voir .user.ini pour l'explication
+# détaillée : sans enable_post_data_reading=0, PHP consomme les corps
+# multipart et les uploads de photos ne traversent pas le proxy.
+#
+# Le bloc est conditionnel : ces directives provoqueraient une erreur 500 sur
+# un hébergement sans mod_php (PHP-FPM / CGI), qui lit .user.ini à la place.
+<IfModule mod_php.c>
+    php_flag enable_post_data_reading Off
+    php_value post_max_size 64M
+    php_value upload_max_filesize 8M
+    php_value memory_limit 128M
+    php_value max_execution_time 120
+    php_value max_input_time 120
+</IfModule>
+<IfModule mod_php7.c>
+    php_flag enable_post_data_reading Off
+    php_value post_max_size 64M
+    php_value upload_max_filesize 8M
+    php_value memory_limit 128M
+    php_value max_execution_time 120
+    php_value max_input_time 120
+</IfModule>
+
+# Corps de requête accepté par Apache (10 photos x 5 Mo au maximum). Sans
+# cela, un envoi volumineux se solde par un 413 avant même d'atteindre PHP.
+LimitRequestBody 67108864
+
 RewriteEngine On
 
 # Ne pas réécrire les fichiers existants
@@ -6,4 +34,3 @@ RewriteCond %{REQUEST_FILENAME} !-d
 
 # Transférer toutes les requêtes vers index.php
 RewriteRule ^ index.php [L,QSA]
-

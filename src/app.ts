@@ -8,7 +8,8 @@ import { categoriesRouter } from "./routes/categories";
 import { reportsRouter } from "./routes/reports";
 import { adminRouter } from "./routes/admin";
 import { usersRouter } from "./routes/users";
-import { PUBLIC_BASE_URL, UPLOAD_DIR } from "./config";
+import { mediaRouter } from "./routes/media";
+import { PUBLIC_BASE_URL } from "./config";
 import { MAX_PHOTOS_PER_LISTING } from "./routes/listings";
 import {
   ALLOWED_IMAGE_MIME_TYPES,
@@ -59,8 +60,9 @@ app.use("/reports", reportsRouter);
 app.use("/admin", adminRouter);
 app.use("/users", usersRouter);
 
-// Images uploadees par les utilisateurs (stockage disque / volume Docker).
-app.use("/uploads", express.static(UPLOAD_DIR));
+// Images uploadees par les utilisateurs, relayees depuis le stockage objet
+// MinIO (GET /uploads/<cle>, voir src/routes/media.ts et src/storage.ts).
+app.use(mediaRouter);
 
 // Frontend statique (public/) — sert l'app web mobile-first.
 app.use(express.static(path.join(process.cwd(), "public")));

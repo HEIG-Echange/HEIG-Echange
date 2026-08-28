@@ -1,7 +1,14 @@
 import { app } from "./app";
 import { scheduleEmailReverificationSweep } from "./jobs/emailReverification";
+import { initStorage } from "./storage";
 
 const port = process.env.PORT ?? 3000;
+
+// Cree le bucket MinIO s'il manque (ou le dossier d'uploads en mode local).
+// Ne bloque pas le demarrage : si MinIO n'est pas encore pret, l'app repond
+// quand meme et le premier upload retentera. Appel ici et pas dans app.ts pour
+// ne rien declencher pendant les tests, qui importent app.ts.
+void initStorage();
 
 app.listen(port, () => {
   console.log(`HEIG Échange démarré sur le port ${port}`);

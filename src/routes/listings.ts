@@ -1,5 +1,3 @@
-import fs from "fs";
-import path from "path";
 import { Router } from "express";
 import type { Request, Response } from "express";
 import QRCode from "qrcode";
@@ -8,7 +6,14 @@ import { pool } from "../db";
 import { requireAuth } from "../middleware/requireAuth";
 import { uploadImage } from "../upload";
 import { aiConfigured, analyzeItemPhoto } from "../ai";
-import { PUBLIC_BASE_URL, UPLOAD_DIR, absoluteUrl } from "../config";
+import { PUBLIC_BASE_URL, absoluteUrl } from "../config";
+import {
+  buildObjectKey,
+  deleteObject,
+  keyFromUrl,
+  saveObject,
+  urlFromKey,
+} from "../storage";
 import { activeAccountSql } from "../auth/emailVerification";
 
 export const listingsRouter = Router();
@@ -637,16 +642,11 @@ function collectUploadedFiles(req: Request) {
   return [...(files.photo ?? []), ...(files.photos ?? [])];
 }
 
-function discardFiles(files: Express.Multer.File[]) {
-  for (const file of files) {
-    fs.unlink(file.path, () => {});
-  }
-}
-
 // POST /listings/:id/photos — ajoute une ou plusieurs photos (multipart, champ
 // "photo" ou "photos") a une annonce existante. Reserve au proprietaire (ou
-// admin). Les fichiers sont stockes sur disque (voir UPLOAD_DIR) et servis via
-// /uploads. Les positions se suivent : la photo en position 0 sert de vignette.
+// admin). Les fichiers partent dans le stockage objet (MinIO, voir
+// src/storage.ts) et sont servis via /uploads/<cle>. Les positions se suivent :
+// la photo en position 0 sert de vignette.
 listingsRouter.post(
   "/:id/photos",
   requireAuth,
@@ -656,7 +656,6 @@ listingsRouter.post(
     const uploaded = collectUploadedFiles(req);
 
     if (!Number.isInteger(id)) {
-      discardFiles(uploaded);
       res.status(400).json({ error: "id invalide" });
       return;
     }
@@ -671,10 +670,7 @@ listingsRouter.post(
       res,
       "ajouter une photo"
     );
-    if (!access) {
-      discardFiles(uploaded);
-      return;
-    }
+    if (!access) return;
 
     // Position = a la suite des photos existantes.
     interface CountRow extends RowDataPacket {
@@ -690,7 +686,6 @@ listingsRouter.post(
     let position = Number(countRows[0]?.next_position ?? 0);
 
     if (existing + uploaded.length > MAX_PHOTOS_PER_LISTING) {
-      discardFiles(uploaded);
       res.status(400).json({
         error: `une annonce ne peut pas depasser ${MAX_PHOTOS_PER_LISTING} photos (${existing} deja presente(s))`,
       });
@@ -699,7 +694,24 @@ listingsRouter.post(
 
     const created = [];
     for (const file of uploaded) {
-      const url = `/uploads/${file.filename}`;
+      // L'objet part d'abord dans le stockage : si l'ecriture echoue, aucune
+      // ligne ne pointe vers une image inexistante. L'inverse laisserait une
+      // vignette cassee dans le carrousel.
+      const key = buildObjectKey(file.mimetype);
+      try {
+        await saveObject(key, file.buffer, file.mimetype);
+      } catch (err) {
+        console.error("ecriture de la photo impossible:", err);
+        res.status(502).json({
+          error:
+            created.length > 0
+              ? `${created.length} photo(s) enregistree(s), l'envoi s'est interrompu ensuite — reessayez avec les photos restantes`
+              : "le stockage des images est indisponible, reessayez plus tard",
+        });
+        return;
+      }
+
+      const url = urlFromKey(key);
       const [result] = await pool.query<ResultSetHeader>(
         "INSERT INTO listing_photos (listing_id, url, position) VALUES (?, ?, ?)",
         [id, url, position]
@@ -757,14 +769,11 @@ listingsRouter.delete("/:id/photos/:photoId", requireAuth, async (req, res) => {
     [id, photo.position]
   );
 
-  // Le fichier n'est efface que s'il vit bien dans UPLOAD_DIR : une url
-  // externe (ou trafiquee) ne doit pas pouvoir faire supprimer un fichier
-  // arbitraire du serveur.
-  const filename = path.basename(photo.url);
-  const filePath = path.join(UPLOAD_DIR, filename);
-  if (photo.url.startsWith("/uploads/") && path.dirname(filePath) === path.resolve(UPLOAD_DIR)) {
-    fs.unlink(filePath, () => {});
-  }
+  // L'objet n'est efface que si l'url designe bien une image de notre
+  // stockage : une url externe (ou trafiquee) ne doit pas pouvoir faire
+  // supprimer un objet arbitraire. keyFromUrl renvoie null dans ce cas.
+  const key = keyFromUrl(photo.url);
+  if (key) await deleteObject(key);
 
   res.status(204).send();
 });
@@ -851,7 +860,6 @@ listingsRouter.post(
       return;
     }
 
-    const filePath = req.file.path;
     const mediaType =
       MIME_TO_MEDIA[req.file.mimetype as keyof typeof MIME_TO_MEDIA];
 
@@ -878,7 +886,9 @@ listingsRouter.post(
         "SELECT id, slug, label FROM categories ORDER BY label ASC"
       );
 
-      const base64 = fs.readFileSync(filePath).toString("base64");
+      // La photo d'analyse n'est jamais stockee : elle ne sert qu'a pre-remplir
+      // le formulaire et reste en memoire le temps de l'appel au modele.
+      const base64 = req.file.buffer.toString("base64");
       const analysis = await analyzeItemPhoto(base64, mediaType, categories);
 
       const categoryId =
@@ -893,9 +903,6 @@ listingsRouter.post(
     } catch (err) {
       console.error("analyse IA echouee:", err);
       res.status(502).json({ error: "l'analyse IA a echoue" });
-    } finally {
-      // Photo d'analyse : temporaire, jamais rattachee a une annonce.
-      fs.unlink(filePath, () => {});
     }
   }
 );

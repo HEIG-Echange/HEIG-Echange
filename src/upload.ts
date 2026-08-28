@@ -1,29 +1,17 @@
-import crypto from "crypto";
 import multer from "multer";
-import { UPLOAD_DIR } from "./config";
+import { MIME_TO_EXT } from "./storage";
 
-// Extensions autorisees, en miroir des types MIME acceptes ci-dessous.
-const ALLOWED_EXT: Record<string, string> = {
-  "image/jpeg": ".jpg",
-  "image/png": ".png",
-  "image/webp": ".webp",
-  "image/gif": ".gif",
-};
-
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
-  filename: (_req, file, cb) => {
-    // Nom aleatoire : evite toute collision et ne fait pas confiance au nom
-    // fourni par le client (path traversal, caracteres exotiques).
-    const ext = ALLOWED_EXT[file.mimetype] ?? ".bin";
-    cb(null, `${Date.now()}-${crypto.randomBytes(8).toString("hex")}${ext}`);
-  },
-});
+// Les fichiers transitent en memoire, pas par un fichier temporaire : ils sont
+// ensuite pousses tels quels dans MinIO (voir src/storage.ts). Avec un plafond
+// de 5 Mo par image et 10 images par annonce, une requete d'upload occupe au
+// pire ~50 Mo — acceptable, et cela evite d'avoir a nettoyer des fichiers
+// orphelins quand une requete echoue en cours de route.
+const storage = multer.memoryStorage();
 
 // Types MIME acceptes et taille maximale, publies tels quels par GET /config :
 // le frontend refuse alors les fichiers hors limites au moment ou l'utilisateur
 // les choisit, plutot que de laisser l'envoi echouer en 400 apres coup.
-export const ALLOWED_IMAGE_MIME_TYPES = Object.keys(ALLOWED_EXT);
+export const ALLOWED_IMAGE_MIME_TYPES = Object.keys(MIME_TO_EXT);
 export const MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024;
 
 // Upload d'une seule image, plafonnee a 5 Mo. Rejette tout ce qui n'est pas
@@ -32,7 +20,7 @@ export const uploadImage = multer({
   storage,
   limits: { fileSize: MAX_PHOTO_SIZE_BYTES },
   fileFilter: (_req, file, cb) => {
-    if (ALLOWED_EXT[file.mimetype]) {
+    if (MIME_TO_EXT[file.mimetype]) {
       cb(null, true);
     } else {
       cb(new Error("format d'image non supporte (jpeg, png, webp ou gif)"));
