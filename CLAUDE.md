@@ -27,6 +27,7 @@ Le prof veut que tout le monde parle à la présentation (~5 min chacun). Rappel
 - **Framework backend :** Express 5, connecté à MariaDB via `mysql2` (pool dans `src/db.ts`). API REST complète : auth/session, annonces, photos, catégories, intérêts, signalements, administration — voir `docs/api.md`.
 - **Base de données :** MariaDB 11.4 (LTS), tourne uniquement dans Docker (pas de serveur SQL sur l'hôte), administrée via **phpMyAdmin** (jamais exposé sur Internet — accès admin via tunnel SSH)
 - **Frontend applicatif :** pages HTML statiques + modules ES servis depuis `public/` par Express (pas de framework, pas de bundler), Tailwind par CDN. Responsive mobile / tablette / desktop — voir `docs/frontend.md`.
+- **Stockage des images :** **MinIO** (https://github.com/minio/minio), stockage objet compatible S3, service `minio` de `compose.yaml`. `src/storage.ts` encapsule tout (écriture, lecture, suppression, création du bucket au démarrage) ; `src/routes/media.ts` relaie les images sur `GET /uploads/<clé>` — le bucket reste privé et l'API S3 n'est jamais publiée. Sans `MINIO_ENDPOINT`, repli automatique sur le disque (`UPLOAD_DIR`) : c'est ce qui permet aux tests et à un lancement local de tourner sans MinIO. Les photos d'avant la migration (URL plates `/uploads/x.jpg`) sont encore relues depuis le volume `uploads-data`.
 - **Emails :** service HTTP interne (`src/mail.ts`, variables `MAILER_*`). Sert la confirmation d'adresse à l'inscription et la reconfirmation semestrielle. Gabarits dans `src/mailTemplates.ts`.
 - **IA (optionnelle) :** analyse d'une photo d'objet pour pré-remplir le formulaire, via l'API **Hugging Face** (`src/ai.ts`, jeton `HUGGINGFACE_API_KEY`). Absent ⇒ l'endpoint répond 503, le reste fonctionne. Modèle et prompts stockés en base (`app_settings`, `src/aiSettings.ts`) et modifiables par un admin depuis `public/admin-ai.html` sans redéploiement.
 - **Tests :** Vitest + Supertest. Les tests de routes remplacent le pool MySQL par un faux pool piloté par motif SQL (`test/support/mockPool.ts`) : la CI n'a pas besoin d'une base.
@@ -64,6 +65,9 @@ Le prof veut que tout le monde parle à la présentation (~5 min chacun). Rappel
 │   ├── notes-presentation-sofia.md  # notes perso de présentation (pas un livrable d'équipe)
 │   └── mockups/README.md       # vide (les exports PNG sont dans mockup/mobile/)
 ├── landing-page/index.html
+├── reverse-proxy/              # proxy PHP place devant l'app chez l'hebergeur
+│   ├── index.php               # relais cURL ; .user.ini/.htaccess portent
+│   └── .user.ini, .htaccess    #   enable_post_data_reading=0 (cf. uploads)
 ├── mockup/mobile/*.png         # exports de la maquette Figma (référence visuelle)
 ├── public/                     # frontend applicatif servi par Express
 ├── scripts/
@@ -72,11 +76,12 @@ Le prof veut que tout le monde parle à la présentation (~5 min chacun). Rappel
 ├── src/
 │   ├── app.ts, server.ts
 │   ├── config.ts               # PUBLIC_BASE_URL, absoluteUrl(), UPLOAD_DIR
-│   ├── db.ts, mail.ts, mailTemplates.ts, ai.ts, aiSettings.ts, upload.ts
+│   ├── db.ts, mail.ts, mailTemplates.ts, ai.ts, aiSettings.ts
+│   ├── upload.ts, storage.ts       # multer en memoire -> MinIO (ou disque)
 │   ├── auth/{validateEmail,emailVerification}.ts
 │   ├── jobs/emailReverification.ts
 │   ├── middleware/{requireAuth,requireAdmin}.ts
-│   └── routes/{auth,listings,categories,users,reports,admin}.ts
+│   └── routes/{auth,listings,categories,users,reports,admin,media}.ts
 ├── test/                       # Vitest + Supertest (+ test/support/mockPool.ts)
 └── fick                        # fichier vide à la racine, résidu accidentel — à supprimer
 ```
@@ -108,6 +113,7 @@ Voir `docs/base-de-donnees.md` pour le détail complet (accès phpMyAdmin, expor
 - Comptes email/mot de passe (bcrypt, sessions), rôles user/admin, modération, signalements
 - Confirmation d'adresse à l'inscription **et** reconfirmation obligatoire tous les 6 mois : sans elle le compte est suspendu et ses annonces masquées
 - Annonces : CRUD, recherche FULLTEXT, filtres, photos multiples (ajout/suppression/réordonnancement), édition après publication, intérêts
+- Photos stockées dans MinIO (bucket privé, relayé par l'app sur `/uploads/<clé>`) ; le proxy PHP de `reverse-proxy/` laissait auparavant les envois multipart arriver **sans corps** (PHP consomme le corps et vide `php://input`), ce qui cassait tout upload en production — corrigé par `enable_post_data_reading=0` + reconstruction de secours dans `index.php`
 - Liens de partage (QR annonce et profil, mailto, URL d'images) tous construits sur `PUBLIC_BASE_URL`
 - Frontend applicatif responsive mobile / tablette / desktop, avec affichage grille ou compact (`docs/frontend.md`)
 - Script de peuplement `scripts/seed_demo_data.py` (données de la maquette)

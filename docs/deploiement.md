@@ -102,6 +102,8 @@ suivi par git, donc absent de l'archive envoyée, et survit aux déploiements.
 ```dotenv
 APP_PORT=8081
 COMPOSE_PROJECT_NAME=heig-echange-staging
+MINIO_ROOT_PASSWORD=<secret propre a staging>
+MINIO_CONSOLE_PORT=9101
 ```
 
 `/home/heigdeploy/heig/prod-pdg/.env` :
@@ -109,7 +111,15 @@ COMPOSE_PROJECT_NAME=heig-echange-staging
 ```dotenv
 APP_PORT=8080
 COMPOSE_PROJECT_NAME=heig-echange-prod
+MINIO_ROOT_PASSWORD=<secret propre a la prod>
+MINIO_CONSOLE_PORT=9100
 ```
+
+`MINIO_ROOT_PASSWORD` est **obligatoire** : comme pour la base, Compose refuse
+de démarrer sans. C'est le mot de passe du stockage des images (service
+`minio`) ; il doit différer entre staging et prod. `MINIO_CONSOLE_PORT` doit
+lui aussi différer sur une machine qui héberge les deux stacks, sinon le second
+déploiement échoue sur un conflit de port.
 
 `COMPOSE_PROJECT_NAME` doit différer entre les deux : sans lui, deux stacks sur
 une même machine partageraient le même nom de projet Compose et se
@@ -180,6 +190,36 @@ directement sur Internet. Pour revenir à un accès local uniquement, définir
 
 
 
+
+### Accès à la console MinIO
+
+Les photos d'annonces sont stockées dans **MinIO** (service `minio`). Son API
+S3 (port 9000) n'est **jamais** publiée sur la machine : seule l'application y
+accède par le réseau Compose, et les images sont relayées aux visiteurs sur
+`/uploads/<clé>`. La console d'administration n'écoute que sur `127.0.0.1` :
+
+```bash
+ssh -L 9001:127.0.0.1:${MINIO_CONSOLE_PORT} heigdeploy@<machine>
+```
+
+puis `http://localhost:9001` dans le navigateur (identifiants
+`MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` du `.env`). Comme pour phpMyAdmin,
+ne jamais exposer cette console directement sur Internet.
+
+### Sauvegarde des images
+
+Le pipeline sauvegarde la base avant chaque déploiement
+(`pre-deploy-*.sql.gz`) ; les images, elles, vivent dans le volume
+`minio-data` et ne sont pas incluses dans ce dump. Pour les archiver :
+
+```bash
+docker compose exec -T minio mc alias set local http://localhost:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
+docker compose exec -T minio mc mirror --overwrite local/heig-echange /data/backup
+```
+
+Le volume `uploads-data` reste monté sur l'application : il contient les photos
+téléversées **avant** le passage à MinIO, encore relues à la demande. Il pourra
+être retiré de `compose.yaml` une fois vide.
 
 ## Déploiement manuel d'urgence
 

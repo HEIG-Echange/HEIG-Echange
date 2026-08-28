@@ -345,9 +345,13 @@ Ajoute **une ou plusieurs** photos à une annonce. Corps
 | `photo` | un seul fichier — forme historique, toujours supportée |
 
 Formats jpeg/png/webp/gif, 5 Mo par fichier, **10 photos maximum par annonce**
-(valeur exposée par `GET /config`). Les fichiers sont stockés sur disque
-(volume Docker `uploads-data`) et servis via `/uploads/...`. Les positions se
-suivent : la photo en position 0 sert de vignette dans la grille.
+(valeur exposée par `GET /config`). Les fichiers partent dans le stockage objet
+**MinIO** (bucket privé, voir « Stockage des images » plus bas) et sont servis
+via `/uploads/<clé>`. Les positions se suivent : la photo en position 0 sert de
+vignette dans la grille.
+
+L'objet est écrit dans le stockage **avant** l'insertion en base : si l'écriture
+échoue, aucune ligne ne pointe vers une image inexistante.
 
 - `201` → un seul fichier envoyé : `{ id, url, absoluteUrl, position }` (forme
   historique) ; plusieurs fichiers : `{ photos: [{ id, url, absoluteUrl, position }] }`
@@ -356,12 +360,13 @@ suivent : la photo en position 0 sert de vignette dans la grille.
 - `401` - pas connecté
 - `403` - ni propriétaire ni admin, ou compte suspendu
 - `404` - annonce introuvable
+- `502` - stockage d'images indisponible (MinIO injoignable)
 
 ### `DELETE /listings/:id/photos/:photoId` - connecté, propriétaire ou admin
 
-Retire une photo d'une annonce. Le fichier est effacé du disque (uniquement
-s'il vit bien dans `UPLOAD_DIR`) et les positions restantes sont retassées pour
-rester contiguës.
+Retire une photo d'une annonce. L'objet est effacé du stockage (uniquement si
+l'URL désigne bien une image de la plateforme : une URL externe ou trafiquée ne
+supprime rien) et les positions restantes sont retassées pour rester contiguës.
 
 - `204`, pas de body
 - `400` - id non numérique
@@ -422,6 +427,46 @@ dans `moderation_logs` (`action: "delete_listing"`, `details: { reason }`).
 - `404` - annonce introuvable
 
 ---
+
+## Stockage des images - `/uploads`
+
+Les photos d'annonces vivent dans **MinIO**
+([github.com/minio/minio](https://github.com/minio/minio)), un serveur de
+stockage objet compatible S3 lancé à côté de l'application
+(service `minio` de `compose.yaml`). L'application n'écrit donc plus d'images
+dans son propre conteneur : elle redevient sans état, plusieurs instances
+peuvent servir les mêmes photos, et la sauvegarde des images ne dépend plus
+d'un volume attaché à un seul hôte.
+
+Le bucket est **privé** et l'API S3 (port 9000) n'est jamais publiée : les
+images sont relayées par l'application.
+
+### `GET /uploads/:clé` - public
+
+Renvoie l'image. La clé est celle contenue dans le champ `url` des photos
+(`/uploads/listings/2026/08/1787-4856fa27.png`) — aucun client n'a besoin de la
+construire lui-même.
+
+- `200` → les octets de l'image, avec `Content-Type`, `Content-Length`, `ETag`,
+  `Last-Modified` et `Cache-Control: public, max-age=31536000, immutable`
+  (une clé est aléatoire et son contenu ne change jamais)
+- `304` - le navigateur a déjà l'image (`If-None-Match`)
+- `404` - image inconnue, ou clé invalide (toute tentative de remontée de
+  chemin est refusée)
+
+Les photos téléversées **avant** le passage à MinIO ont une URL plate
+(`/uploads/1712-abcd.jpg`) et sont relues depuis l'ancien volume `uploads-data`
+tant qu'il est monté : rien à migrer à la main, et l'affichage reste identique.
+
+### Configuration
+
+| Variable | Rôle |
+|---|---|
+| `MINIO_ENDPOINT` | hôte du serveur S3. **Vide ⇒ repli sur le disque** (`UPLOAD_DIR`), ce qui permet de lancer les tests et un serveur local sans MinIO |
+| `MINIO_PORT`, `MINIO_USE_SSL` | port et TLS (9000 / `false` dans Compose) |
+| `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY` | identifiants — obligatoires dès que `MINIO_ENDPOINT` est défini |
+| `MINIO_BUCKET` | bucket, créé automatiquement au démarrage s'il manque |
+| `MINIO_REGION` | région S3 (`us-east-1` par défaut) |
 
 ## Catégories - `/categories`
 
