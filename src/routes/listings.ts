@@ -45,6 +45,8 @@ interface ListingRow extends RowDataPacket {
   item_condition: ItemCondition;
   status: "available" | "reserved" | "closed";
   location: string | null;
+  is_priority: number;
+  end_priority_at: string | null;
   photo_url: string | null;
   created_at: string;
   updated_at: string;
@@ -55,6 +57,60 @@ interface PhotoRow extends RowDataPacket {
   id: number;
   url: string;
   position: number;
+}
+
+const DEFAULT_PRIORITY_DURATION_HOURS = 48;
+
+// check si une annonce est retreinte au groupes de priorité
+function isPriorityActive(listing: {
+  is_priority: number;
+  end_priority_at: string | null;
+}): boolean {
+  return (
+    Boolean(listing.is_priority) &&
+    listing.end_priority_at !== null &&
+    new Date(listing.end_priority_at).getTime() > Date.now()
+  );
+}
+
+// check si un utilisateur est admin
+async function isAdminUser(userId: number | undefined): Promise<boolean> {
+  if (!userId) return false;
+  interface RoleRow extends RowDataPacket {
+    role: "user" | "admin";
+  }
+  const [rows] = await pool.query<RoleRow[]>(
+    "SELECT role FROM users WHERE id = ?",
+    [userId]
+  );
+  return rows[0]?.role === "admin";
+}
+
+// check si un utilisateur peut voir un listing
+async function canAccessListing(
+  listing: { id: number; owner_id: number; is_priority: number; end_priority_at: string | null },
+  userId: number | undefined
+): Promise<boolean> {
+  if (!isPriorityActive(listing)) return true;
+  // si le listing est retreint au groupes de priorite, le utilisateur doit etre connectee
+  if (!userId) return false;
+  //les proprietaires et les admin peuvent voir les annonces restreintes
+  if (listing.owner_id === userId) return true;
+  if (await isAdminUser(userId)) return true;
+
+  interface AccessRow extends RowDataPacket {
+    one: number;
+  }
+  const [rows] = await pool.query<AccessRow[]>(
+    `SELECT 1 AS one
+     FROM priority_groups pg
+     JOIN friends_group_members m ON m.friends_group_id = pg.friends_group_id
+     WHERE pg.listing_id = ? AND m.user_id = ?
+     LIMIT 1`,
+    [listing.id, userId]
+  );
+  //si l'utilisateur est mebre d'au moins un des groupes de priorite
+  return rows.length > 0;
 }
 
 // includeContact : n'expose le nom et l'email du proprietaire qu'aux visiteurs
@@ -74,6 +130,8 @@ function toListingJson(row: ListingRow, includeContact: boolean) {
     itemCondition: row.item_condition,
     status: row.status,
     location: row.location,
+    isPriority: isPriorityActive(row),
+    endPriorityAt: row.end_priority_at,
     photoUrl: row.photo_url,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -86,6 +144,7 @@ const LISTING_SELECT = `
     l.id, l.owner_id, u.display_name AS owner_name, u.email AS owner_email,
     l.category_id, c.slug AS category_slug, c.label AS category_label,
     l.title, l.description, l.item_condition, l.status, l.location,
+    l.is_priority, l.end_priority_at,
     (SELECT p.url FROM listing_photos p
        WHERE p.listing_id = l.id ORDER BY p.position ASC LIMIT 1) AS photo_url,
     l.created_at, l.updated_at, l.closed_at
@@ -93,6 +152,85 @@ const LISTING_SELECT = `
   LEFT JOIN users u ON u.id = l.owner_id
   LEFT JOIN categories c ON c.id = l.category_id
 `;
+
+// valide et normalise les champs de priorite envoyes par le client 
+interface PriorityInput {
+  isPriority: boolean;
+  endPriorityAt: Date | null;
+  groupIds: number[];
+}
+
+async function parsePriorityInput(
+  body: Record<string, unknown>,
+  ownerId: number,
+  res: import("express").Response
+): Promise<PriorityInput | null | undefined> {
+  const { isPriority, priorityGroupIds, priorityDurationHours } = body;
+
+  if (isPriority === undefined) {
+    return null;
+  }
+
+  if (!isPriority) {
+    return { isPriority: false, endPriorityAt: null, groupIds: [] };
+  }
+
+  // if priority is true 
+  //verifier que le utilisateur a choisit des groupes de priorite
+  if (
+    !Array.isArray(priorityGroupIds) ||
+    priorityGroupIds.length === 0 
+  ) {
+    res.status(400).json({
+      error: "priorityGroupIds est requis quand isPriority est actif",
+    });
+    return undefined;
+  }
+
+  //verifier la duree 
+  if (
+    priorityDurationHours !== undefined &&
+    (typeof priorityDurationHours !== "number" )
+  ) {
+    res.status(400).json({ error: "priorityDurationHours doit etre un nombre positif" });
+    return undefined;
+  }
+
+  // Le frontend ne propose que les groupes de l'utilisateur connecte, donc
+  // on verifie seulement que les groupes existent (et ne sont pas supprimes).
+  interface GroupIdRow extends RowDataPacket {
+    id: number;
+  }
+  const placeholders = priorityGroupIds.map(() => "?").join(",");
+  const [existingGroups] = await pool.query<GroupIdRow[]>(
+    `SELECT id FROM friends_groups WHERE id IN (${placeholders}) AND deleted_at IS NULL`,
+    priorityGroupIds
+  );
+  if (existingGroups.length !== new Set(priorityGroupIds).size) {
+    res.status(400).json({
+      error: "priorityGroupIds invalide : un ou plusieurs groupes sont introuvables",
+    });
+    return undefined;
+  }
+
+  const hours = priorityDurationHours ?? DEFAULT_PRIORITY_DURATION_HOURS;
+  return {
+    isPriority: true,
+    endPriorityAt: new Date(Date.now() + hours * 3600_000),
+    groupIds: [...new Set(priorityGroupIds)],
+  };
+}
+
+async function replacePriorityGroups(listingId: number, groupIds: number[]): Promise<void> {
+  await pool.query("DELETE FROM priority_groups WHERE listing_id = ?", [listingId]);
+  if (groupIds.length === 0) return;
+  const values = groupIds.map(() => "(?, ?)").join(", ");
+  const params = groupIds.flatMap((groupId) => [listingId, groupId]);
+  await pool.query(
+    `INSERT INTO priority_groups (listing_id, friends_group_id) VALUES ${values}`,
+    params
+  );
+}
 
 // POST /listings — cree une annonce , faut etre connecte 
 listingsRouter.post("/", requireAuth, async (req, res) => {
@@ -122,11 +260,33 @@ listingsRouter.post("/", requireAuth, async (req, res) => {
   const locationValue =
     typeof location === "string" && location.trim() ? location.trim() : null;
 
+  const priority = await parsePriorityInput(
+    req.body ?? {},
+    req.session.userId as number,
+    res
+  );
+  if (priority === undefined) return; // reponse d'erreur deja envoyee
+
   try {
     const [result] = await pool.query<ResultSetHeader>(
-      "INSERT INTO listings (owner_id, category_id, title, description, item_condition, location) VALUES (?, ?, ?, ?, ?, ?)",
-      [req.session.userId, categoryId, title, description, itemCondition, locationValue]
+      `INSERT INTO listings
+         (owner_id, category_id, title, description, item_condition, location, is_priority, end_priority_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        req.session.userId,
+        categoryId,
+        title,
+        description,
+        itemCondition,
+        locationValue,
+        priority?.isPriority ? 1 : 0,
+        priority?.endPriorityAt ?? null,
+      ]
     );
+
+    if (priority?.isPriority) {
+      await replacePriorityGroups(result.insertId, priority.groupIds);
+    }
 
     res.status(201).json({
       id: result.insertId,
@@ -137,6 +297,9 @@ listingsRouter.post("/", requireAuth, async (req, res) => {
       itemCondition,
       location: locationValue,
       status: "available",
+      isPriority: priority?.isPriority ?? false,
+      endPriorityAt: priority?.endPriorityAt ?? null,
+      ...(priority?.isPriority ? { priorityGroupIds: priority.groupIds } : {}),
     });
   } catch (err) {
     // FK invalide (categoryId inexistant) -> erreur utilisateur, pas un 500.
@@ -188,7 +351,7 @@ listingsRouter.patch("/:id", requireAuth, async (req, res) => {
   const { categoryId, title, description, itemCondition, location } =
     req.body ?? {};
   const sets: string[] = [];
-  const params: (string | number | null)[] = [];
+  const params: (string | number | null | Date)[] = [];
 
   if (categoryId !== undefined) {
     if (typeof categoryId !== "number" || !Number.isInteger(categoryId)) {
@@ -239,6 +402,17 @@ listingsRouter.patch("/:id", requireAuth, async (req, res) => {
     );
   }
 
+  // La restriction se modifie toujours en bloc (isPriority + groupIds) pour
+  // rester coherente : cf. parsePriorityInput. owner_id ici est celui de
+  // l'annonce (le proprietaire choisit parmi SES groupes), pas forcement
+  // req.session.userId si c'est un admin qui modifie.
+  const priority = await parsePriorityInput(req.body ?? {}, listing.owner_id, res);
+  if (priority === undefined) return; // reponse d'erreur deja envoyee
+  if (priority !== null) {
+    sets.push("is_priority = ?", "end_priority_at = ?");
+    params.push(priority.isPriority ? 1 : 0, priority.endPriorityAt);
+  }
+
   if (sets.length === 0) {
     res.status(400).json({ error: "aucun champ a modifier" });
     return;
@@ -253,6 +427,10 @@ listingsRouter.patch("/:id", requireAuth, async (req, res) => {
       return;
     }
     throw err;
+  }
+
+  if (priority !== null) {
+    await replacePriorityGroups(id, priority.groupIds);
   }
 
   const [updatedRows] = await pool.query<ListingRow[]>(
@@ -295,6 +473,24 @@ listingsRouter.get("/", async (req, res) => {
   if (typeof q === "string" && q.trim()) {
     where.push("MATCH(l.title, l.description) AGAINST (? IN NATURAL LANGUAGE MODE)");
     params.push(q.trim());
+  }
+
+  // Annonces restreintes (is_priority + end_priority_at futur) : masquees de
+  // la grille sauf pour le proprietaire, un admin, ou un membre d'un des
+  // groupes autorises. 0 en repli pour un visiteur anonyme : ne correspond a
+  // aucun id reel, donc les clauses OR ci-dessous ne le concernent jamais.
+  const viewerId = req.session.userId;
+  if (!(await isAdminUser(viewerId))) {
+    where.push(`(
+      NOT (l.is_priority = 1 AND l.end_priority_at IS NOT NULL AND l.end_priority_at > NOW())
+      OR l.owner_id = ?
+      OR EXISTS (
+        SELECT 1 FROM priority_groups pg
+        JOIN friends_group_members m ON m.friends_group_id = pg.friends_group_id
+        WHERE pg.listing_id = l.id AND m.user_id = ?
+      )
+    )`);
+    params.push(viewerId ?? 0, viewerId ?? 0);
   }
 
   const [rows] = await pool.query<ListingRow[]>(
@@ -344,25 +540,79 @@ listingsRouter.get("/:id", async (req, res) => {
     return;
   }
 
+  // Meme reponse (404) qu'une annonce inexistante : on ne revele pas a un
+  // visiteur non autorise qu'une annonce restreinte existe a cette adresse.
+  if (!(await canAccessListing(listing, req.session.userId))) {
+    res.status(404).json({ error: "annonce introuvable" });
+    return;
+  }
+
   const [photos] = await pool.query<PhotoRow[]>(
     "SELECT id, url, position FROM listing_photos WHERE listing_id = ? ORDER BY position ASC",
     [id]
   );
 
   const includeContact = Boolean(req.session.userId);
+
+  let priorityGroupIds: number[] | undefined;
+  if (req.session.userId === listing.owner_id) {
+    interface GroupIdRow extends RowDataPacket {
+      friends_group_id: number;
+    }
+    const [groupRows] = await pool.query<GroupIdRow[]>(
+      "SELECT friends_group_id FROM priority_groups WHERE listing_id = ?",
+      [id]
+    );
+    priorityGroupIds = groupRows.map((r) => r.friends_group_id);
+  }
+
   res.json({
     ...toListingJson(listing, includeContact),
     photos: photos.map((p) => ({ id: p.id, url: p.url, position: p.position })),
+    ...(priorityGroupIds ? { priorityGroupIds } : {}),
   });
 });
 
-// GET /listings/:id/interest — voir les personne interesse par une anonce 
+interface PriorityCheckRow extends RowDataPacket {
+  id: number;
+  owner_id: number;
+  is_priority: number;
+  end_priority_at: string | null;
+}
+
+// Charge l'annonce (non supprimee) et verifie l'acces (restriction de
+// priorite). Ecrit une reponse 404 et renvoie null si l'annonce n'existe pas
+// OU si elle est restreinte et inaccessible a l'appelant — meme reponse dans
+// les deux cas, pour ne pas reveler l'existence d'une annonce restreinte.
+async function loadAccessibleListing(
+  id: number,
+  userId: number | undefined,
+  res: import("express").Response
+): Promise<PriorityCheckRow | null> {
+  const [rows] = await pool.query<PriorityCheckRow[]>(
+    "SELECT id, owner_id, is_priority, end_priority_at FROM listings WHERE id = ? AND deleted_at IS NULL",
+    [id]
+  );
+  const listing = rows[0];
+
+  if (!listing || !(await canAccessListing(listing, userId))) {
+    res.status(404).json({ error: "annonce introuvable" });
+    return null;
+  }
+
+  return listing;
+}
+
+// GET /listings/:id/interest — voir les personne interesse par une anonce
 listingsRouter.get("/:id/interest", requireAuth, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id)) {
     res.status(400).json({ error: "id invalide" });
     return;
   }
+
+  const listing = await loadAccessibleListing(id, req.session.userId, res);
+  if (!listing) return;
 
   interface InterestRow extends RowDataPacket {
     id: number;
@@ -383,19 +633,8 @@ listingsRouter.post("/:id/interest", requireAuth, async (req, res) => {
     return;
   }
 
-  interface OwnerRow extends RowDataPacket {
-    owner_id: number;
-  }
-  const [rows] = await pool.query<OwnerRow[]>(
-    "SELECT owner_id FROM listings WHERE id = ? AND deleted_at IS NULL",
-    [id]
-  );
-  const listing = rows[0];
-
-  if (!listing) {
-    res.status(404).json({ error: "annonce introuvable" });
-    return;
-  }
+  const listing = await loadAccessibleListing(id, req.session.userId, res);
+  if (!listing) return;
 
   if (listing.owner_id === req.session.userId) {
     res.status(400).json({
@@ -427,6 +666,9 @@ listingsRouter.delete("/:id/interest", requireAuth, async (req, res) => {
     res.status(400).json({ error: "id invalide" });
     return;
   }
+
+  const listing = await loadAccessibleListing(id, req.session.userId, res);
+  if (!listing) return;
 
   const [result] = await pool.query<ResultSetHeader>(
     "DELETE FROM listing_interests WHERE listing_id = ? AND user_id = ?",

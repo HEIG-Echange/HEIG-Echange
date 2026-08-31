@@ -13,13 +13,19 @@ patch {
 body:json {
   {
     "title": "{{title}}",
-    "description": "{{description}}"
+    "description": "{{description}}",
+    "isPriority": {{isPriority}},
+    "priorityGroupIds": [{{priorityGroupId}}],
+    "priorityDurationHours": {{priorityDurationHours}}
   }
 }
 
 vars:pre-request {
   title: Calculatrice HP Prime G2 (modifiee)
   description: Description mise a jour
+  isPriority: false
+  priorityGroupId: 1
+  priorityDurationHours: 48
 }
 
 script:pre-request {
