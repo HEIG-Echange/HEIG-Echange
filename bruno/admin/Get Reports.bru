@@ -1,0 +1,19 @@
+meta {
+  name: Get Reports
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/admin/reports
+  body: none
+  auth: none
+}
+
+params:query {
+  ~status: {{reportStatusFilter}}
+}
+
+vars:pre-request {
+  reportStatusFilter: open
+}

@@ -1,0 +1,32 @@
+meta {
+  name: Review Report
+  type: http
+  seq: 2
+}
+
+patch {
+  url: {{baseUrl}}/admin/reports/{{reportId}}
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "status": "{{reportStatus}}",
+    "note": "{{note}}"
+  }
+}
+
+vars:pre-request {
+  reportStatus: dismissed
+  note: Verifie, rien d'anormal
+}
+
+script:pre-request {
+  // Valeur par defaut si aucun signalement n'a ete cree dans cette session
+  // (ex. via "Create Report", qui definit reportId automatiquement) —
+  // modifiable directement dans l'onglet Vars sinon.
+  if (!bru.getVar("reportId")) {
+    bru.setVar("reportId", 1);
+  }
+}

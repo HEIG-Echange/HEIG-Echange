@@ -25,18 +25,21 @@ niveaux se combinent :
 - **Secrets de repository** : partagés par staging et production. C'est le bon
   niveau tant que les deux environnements sont sur la **même machine**.
 - **Secrets d'environnement** (`Settings > Environments > staging|production`) :
-  propres à un environnement, et **prioritaires** sur un secret de repository de
-  même nom (car le job `deploy` déclare `environment:`).
+  pour chaque environnement. (Prioritaires sur clefs-valeurs des secrets de repository si même nom).
 
-### Secrets de repository (partagés)
+### Secrets de repository (partagés entre environnements)
+
+Initialement, la machine serveur était hébergée dans un appartement (Raspberry Pi). Une règle de Firewall était ouverte. Pour des soucis de sécurité, les valeurs qui permettraient d identifier l IP, le port, le user ont été mis en secret.
 
 | Secret | Requis | Défaut | Rôle |
 |---|---|---|---|
 | `DEPLOY_HOST` | oui | — | nom d'hôte ou IP de la machine |
 | `DEPLOY_USER` | oui | — | utilisateur SSH, membre du groupe `docker` |
 | `DEPLOY_PORT` | non | `22` | port SSH |
-| `DEPLOY_SSH_PRIVATE_KEY` | oui | — | clé privée de déploiement, **sans passphrase** |
+| `DEPLOY_SSH_PRIVATE_KEY` | oui | — | clé privée de déploiement **sans passphrase** (sinon pas automatisable dans le pipeline). à générer puis à attribuer à Github. Ajouter la clef publique dans le fichier `~/.ssh/authorized_keys` du serveur cible. |
 | `DEPLOY_SSH_KNOWN_HOSTS` | oui | — | clé publique de l'hôte, pour vérifier la machine |
+
+Exemple de valeur pour 
 
 ### Secret d'environnement (une valeur par environnement)
 
@@ -169,26 +172,24 @@ jamais publiée sur la machine hôte (pas de section `ports` sur le service
 
 ### Accès à phpMyAdmin depuis une autre machine
 
-Le service `phpmyadmin` (profil `tools`, à lancer avec
-`docker compose --profile tools up -d`) est publié sur `0.0.0.0` par défaut,
-donc joignable depuis une autre machine du réseau à
-`http://<ip-de-la-machine>:${PHPMYADMIN_PORT}`. C'est volontaire pour permettre
-l'administration à distance, mais phpMyAdmin n'est pas servi en HTTPS ici :
-ne l'exposer que sur un réseau de confiance (LAN privé, VPN), jamais
-directement sur Internet. Pour revenir à un accès local uniquement, définir
-`PHPMYADMIN_BIND_ADDRESS=127.0.0.1` dans le `.env` concerné.
+Le service `phpmyadmin` (profil `tools`, à lancer avec `docker compose --profile tools up -d`) est publié sur `0.0.0.0` par défaut (i.e. joignable depuis une autre machine du réseau), pour nous permettre d administrer à distance la BDD.
+
+En production, pour plus de sécurité, on limiterait par exemple l accès depuis la machine serveur.
+
+Pour revenir à un accès local uniquement, définir`PHPMYADMIN_BIND_ADDRESS=127.0.0.1` dans le `.env` concerné.
 
 
 
 
 ## Déploiement manuel d'urgence
 
-Le script distant est utilisable à la main, sans pipeline, depuis une copie des
-sources déjà présente dans le dossier :
+Le script distant est utilisable à la main, sans pipeline, depuis une copie des sources déjà présente dans le dossier :
 
 ```bash
 cd /home/heigdeploy/heig/prod-pdg && IMAGE_TAG=production docker compose up --build -d --wait
 ```
+
+
 
 ## Retour arrière
 
