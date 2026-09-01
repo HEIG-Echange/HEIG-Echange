@@ -31,8 +31,13 @@ interface UserRow extends RowDataPacket {
 }
 
 function generateVerificationCode(): string {
-  // 8 chiffres, zeros non-significatifs conserves 
+  // 8 chiffres, zeros non-significatifs conserves
   return String(crypto.randomInt(0, 100_000_000)).padStart(8, "0");
+}
+
+
+function isValidPassword(value: unknown): value is string {
+  return typeof value === "string" && value.length >= MIN_PASSWORD_LENGTH;
 }
 
 async function sendVerificationEmail(
@@ -58,8 +63,7 @@ authRouter.post("/register", async (req, res) => {
     typeof email !== "string" ||
     typeof displayName !== "string" ||
     !displayName.trim() ||
-    typeof password !== "string" ||
-    password.length < MIN_PASSWORD_LENGTH
+    !isValidPassword(password)
   ) {
     res.status(400).json({
       error: `email, displayName et password (min. ${MIN_PASSWORD_LENGTH} caracteres) sont requis`,
@@ -290,7 +294,7 @@ authRouter.get("/me", async (req, res) => {
   });
 });
 
-// PATCH /auth/me — modifie le profil du compte connecte - displayName et/ou avatarUrl, mise a jour partielle.
+// PATCH /auth/me — modifie le profil du compte connecte - displayName et/ou avatarUrl, mot de passe 
 authRouter.patch("/me", async (req, res) => {
   if (!req.session.userId) {
     res.status(401).json({ error: "vous n'etes pas connecte" });
@@ -320,7 +324,7 @@ authRouter.patch("/me", async (req, res) => {
   }
 
   if (password !== undefined) {
-    if (typeof password !== "string" || password.length < MIN_PASSWORD_LENGTH) {
+    if (!isValidPassword(password)) {
       res.status(400).json({
         error: `password doit faire au moins ${MIN_PASSWORD_LENGTH} caracteres`,
       });

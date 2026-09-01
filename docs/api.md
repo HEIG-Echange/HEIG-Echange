@@ -242,7 +242,9 @@ Renvoi true si l'utilisateur a deja marque son interet pr cet article
 
 ### `POST /listings/:id/interest` - connecté
 
-Marquer l'utilisateur comme interessé par l'article
+Marquer l'utilisateur comme interessé par l'article. À la première inscription
+(`201`), le propriétaire reçoit un email contenant l'adresse de la personne
+intéressée. Pas de nouvel email en cas de clic répété (`200`).
 
 - `201` → `{ interested: true }` (première fois)
 - `200` → `{ interested: true }` (déjà enregistré)

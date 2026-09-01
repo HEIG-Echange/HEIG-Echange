@@ -5,6 +5,7 @@ import { pool } from "../db";
 import { requireAuth } from "../middleware/requireAuth";
 import { uploadImage } from "../upload";
 import { aiConfigured, analyzeItemPhoto } from "../ai";
+import { sendEmail } from "../mail";
 
 export const listingsRouter = Router();
 
@@ -535,14 +536,7 @@ listingsRouter.get("/:id", async (req, res) => {
 
   const listing = rows[0];
 
-  if (!listing) {
-    res.status(404).json({ error: "annonce introuvable" });
-    return;
-  }
-
-  // Meme reponse (404) qu'une annonce inexistante : on ne revele pas a un
-  // visiteur non autorise qu'une annonce restreinte existe a cette adresse.
-  if (!(await canAccessListing(listing, req.session.userId))) {
+  if (!listing || !(await canAccessListing(listing, req.session.userId))) {
     res.status(404).json({ error: "annonce introuvable" });
     return;
   }
@@ -625,6 +619,26 @@ listingsRouter.get("/:id/interest", requireAuth, async (req, res) => {
   res.json({ interested: rows.length > 0 });
 });
 
+// Notifie le proprietaire par email quand quelqu'un manifeste son interet.
+// N'echoue jamais l'appelant : une erreur d'envoi est juste loggee.
+async function sendInterestNotification(
+  ownerEmail: string,
+  ownerName: string,
+  interestedEmail: string,
+  interestedName: string,
+  listingTitle: string
+): Promise<void> {
+  try {
+    await sendEmail({
+      to: ownerEmail,
+      subject: `${interestedName} est interesse par "${listingTitle}"`,
+      body: `Bonjour ${ownerName},\n\n${interestedName} (${interestedEmail}) est interesse par votre annonce "${listingTitle}".\n\nContacte cette personne via Teams pour organiser la remise.`,
+    });
+  } catch (err) {
+    console.error(`Echec envoi email de notification d'interet a ${ownerEmail}`, err);
+  }
+}
+
 // POST /listings/:id/interest — un utilisateur connecte veut marquer son interet pr une annonce
 listingsRouter.post("/:id/interest", requireAuth, async (req, res) => {
   const id = Number(req.params.id);
@@ -648,10 +662,41 @@ listingsRouter.post("/:id/interest", requireAuth, async (req, res) => {
       "INSERT INTO listing_interests (listing_id, user_id) VALUES (?, ?)",
       [id, req.session.userId]
     );
+
+    interface NotifyRow extends RowDataPacket {
+      listing_title: string;
+      owner_email: string;
+      owner_name: string;
+      interested_email: string;
+      interested_name: string;
+    }
+    const [notifyRows] = await pool.query<NotifyRow[]>(
+      `SELECT l.title AS listing_title,
+              o.email AS owner_email, o.display_name AS owner_name,
+              i.email AS interested_email, i.display_name AS interested_name
+       FROM listings l
+       JOIN users o ON o.id = l.owner_id
+       JOIN users i ON i.id = ?
+       WHERE l.id = ?`,
+      [req.session.userId, id]
+    );
+    const notify = notifyRows[0];
+    if (notify) {
+      await sendInterestNotification(
+        notify.owner_email,
+        notify.owner_name,
+        notify.interested_email,
+        notify.interested_name,
+        notify.listing_title
+      );
+    }
+
     res.status(201).json({ interested: true });
   } catch (err) {
     if ((err as { code?: string }).code === "ER_DUP_ENTRY") {
-      // Deja enregistre : on ne renvoie pas d'erreur pour un clic repete.
+      // Deja enregistre : on ne renvoie pas d'erreur pour un clic repete, et
+      // on ne renvoie pas de nouvelle notification (deja envoyee la premiere
+      // fois).
       res.status(200).json({ interested: true });
       return;
     }
