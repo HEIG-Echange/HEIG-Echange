@@ -87,13 +87,13 @@ echo "==> docker compose down (${DEPLOY_ENV})"
 docker compose down
 
 
-# echo "==> docker compose up --profile tools --build -d (${DEPLOY_ENV})"
-echo "==> docker compose up --profile tools --no-build -d (${DEPLOY_ENV})"
+echo "==> docker compose up --profile tools --build -d (${DEPLOY_ENV})"
+# echo "==> docker compose up --profile tools --no-build -d (${DEPLOY_ENV})"
 
 # --wait fait echouer la commande si le healthcheck du conteneur ne passe pas :
 # un demarrage casse remonte en echec de pipeline au lieu de passer inapercu.
-# if ! docker compose --profile tools up --build -d --remove-orphans --wait --wait-timeout 300; then
-if ! docker compose --profile tools up --no-build -d --remove-orphans --wait --wait-timeout 300; then
+if ! docker compose --profile tools up --build -d --remove-orphans --wait --wait-timeout 300; then
+# if ! docker compose --profile tools up --no-build -d --remove-orphans --wait --wait-timeout 300; then
   echo "erreur: les services ne sont pas devenus sains." >&2
   docker compose ps || true
   docker compose logs --tail=100 || true
