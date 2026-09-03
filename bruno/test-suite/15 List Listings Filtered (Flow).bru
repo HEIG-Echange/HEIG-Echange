@@ -1,0 +1,26 @@
+meta {
+  name: 15 List Listings Filtered (Flow)
+  type: http
+  seq: 15
+}
+
+get {
+  url: {{baseUrl}}/listings?categoryId=1
+  body: none
+  auth: none
+}
+
+params:query {
+  categoryId: 1
+}
+
+tests {
+  test("renvoie 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("la grille contient l'annonce creee par la suite", function () {
+    const ids = res.getBody().map((listing) => listing.id);
+    expect(ids).to.include(bru.getVar("flowListingId"));
+  });
+}

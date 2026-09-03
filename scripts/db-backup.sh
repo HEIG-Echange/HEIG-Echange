@@ -6,6 +6,9 @@
 # adapte a une sauvegarde automatisee ou avant un deploiement.
 #
 #   ./scripts/db-backup.sh                 -> backups/heig-echange-<horodatage>.sql.gz
+#   DEPLOY_ENV=staging DB_BACKUP_PATH=/srv/backups ./scripts/db-backup.sh
+#     -> /srv/backups/db_staging_YYYY-MM-DD_HHhMM.sql.gz
+#
 #   ./scripts/db-restore.sh <fichier>      pour restaurer
 #
 # S'appuie sur le compose du dossier courant : lance mariadb-dump DANS le
@@ -26,7 +29,9 @@ DB_NAME="${MARIADB_DATABASE:-heig_echange}"
 DB_USER="${MARIADB_USER:-heig}"
 DB_PASSWORD="${MARIADB_PASSWORD:?MARIADB_PASSWORD est requis (definir dans .env)}"
 
-OUT_DIR="${BACKUP_DIR:-backups}"
+# OUT_DIR="${BACKUP_DIR:-backups}"
+OUT_DIR="${DB_BACKUP_PATH:-${BACKUP_DIR:-backups}}"
+DEPLOY_ENV="${DEPLOY_ENV:-local}"
 mkdir -p "$OUT_DIR"
 
 # Horodatage UTC, triable et sans caractere problematique pour un nom de fichier.

@@ -29,6 +29,11 @@ ENV NODE_ENV=production \
 
 WORKDIR /app
 
+# Dossier des images uploadees, possede par l'utilisateur node : le volume
+# Docker monte a cet emplacement (voir compose.yaml) herite de cette propriete,
+# donc l'app (qui tourne en USER node) peut y ecrire meme en filesystem durci.
+RUN mkdir -p /app/uploads && chown -R node:node /app/uploads
+
 # ---------------------------------------------------------------------------
 # deps — dependances de production uniquement
 #

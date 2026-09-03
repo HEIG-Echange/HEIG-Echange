@@ -1,18 +1,21 @@
 # ---------------------------------------------------------------------------
-# CD — deploiement sur les machines distantes.
+# CD — deploiement sur machine distante (production, staging).
 #
-#   push sur staging           -> deploiement staging automatiquement
-#   merge sur main             -> deploiement production automatiquement
+#   push sur staging           -> deploiement auto sur staging
+#   merge sur main             -> deploiement auto sur production
 #   declenchement manuel       -> staging ou production
 #
-# L'environnement "production" peut en plus exiger une approbation
-# (Settings > Environments > production > Required reviewers).
+#   # en plus du CD staging/prod, 
+#   # il y a des environnements de tests utilisables par
+#   # développeurs de l équipe pour itération rapide
+#   push sur branche "deva"    -> deploiement auto sur environnement dev1
+#   push sur branche "devb"    -> deploiement auto sur environnement dev2
 # ---------------------------------------------------------------------------
 name: CD
 
 on:
   push:
-    branches: [main, staging]
+    branches: [main, staging, deva, devb, devc]
     paths-ignore:
       - "docs/**"
       - "**.md"
@@ -24,6 +27,9 @@ on:
         options:
           - staging
           - production
+          - deva
+          - devb
+          - devc
         default: staging
 
 concurrency:
@@ -31,8 +37,8 @@ concurrency:
 
 jobs:
   # Le deploiement construit l'image sur la machine cible : on revalide donc le
-  # commit ici avant de toucher a une machine, plutot que de faire confiance a
-  # un run de CI voisin.
+  # commit ici avant de toucher une machine, plutot que de faire confiance au
+  # run de CI.
   verify:
     runs-on: ubuntu-latest
     steps:
@@ -41,38 +47,44 @@ jobs:
         run: docker build --target verify .
 
 
-  # Note : un job qui appelle un workflow reutilisable (uses:) n'accepte que
-  # with / secrets / needs / if / permissions / concurrency. Pas de env: ni de
-  # steps:. Les secrets sont transmis par "secrets: inherit" (les secrets du
-  # repository + ceux de l'environnement cible declare dans deploy.yml).
-  #
-  # deploy_path n'est qu'un defaut de repli : si le secret d'environnement
-  # DEPLOY_PATH est defini (recommande, une valeur par environnement), il gagne.
-  staging:
+
+  publish-image:
     needs: verify
-    if: >-
-      (github.event_name == 'push' && github.ref_name == 'staging')
-      || (github.event_name == 'workflow_dispatch' && inputs.environment == 'staging')
-    uses: ./.github/workflows/deploy.yml
-    with:
-      environment: staging
-      deploy_path: /home/heigdeploy/heig/staging-pdg
-    secrets: inherit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.image.outputs.image }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: image
+        run: |
+          repository="ghcr.io/${GITHUB_REPOSITORY,,}"
+          echo "repository=$repository" >> "$GITHUB_OUTPUT"
+          echo "image=$repository:$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+      - name: Construire et publier l'image immuable
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ steps.image.outputs.image }}
+            ${{ steps.image.outputs.repository }}:${{ github.ref_name }}
+            ${{ steps.image.outputs.repository }}:latest
+          build-args: |
+            VERSION=${{ github.sha }}
+            REVISION=${{ github.sha }}
+            CREATED=${{ github.event.head_commit.timestamp || github.run_id }}
 
-  production:
-    needs: verify
-    if: >-
-      (github.event_name == 'push' && github.ref_name == 'main')
-      || (github.event_name == 'workflow_dispatch' && inputs.environment == 'production')
-    uses: ./.github/workflows/deploy.yml
-    with:
-      environment: production
-      deploy_path: /home/heigdeploy/heig/prod-pdg
-    secrets: inherit
-
-
-  # Deploys image to Github registry
+  # Deployer image dans Github registry
   deploy:
+    needs: verify
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -109,3 +121,78 @@ jobs:
           else
             echo "RENDER_DEPLOY_HOOK pas encore configure, etape sautee"
           fi
+
+
+
+  # Note (lecon) : un job qui appelle un workflow reutilisable
+  # i.e. qui contient (uses:) n'accepte que
+  # with / secrets / needs / if / permissions / concurrency. 
+  # Donc pas de env: ni de steps:
+  # Les secrets sont transmis par "secrets: inherit" (les secrets du
+  # repository + ceux de l'environnement cible declaré dans deploy.yml).
+  #
+  # deploy_path juste valeur par defaut (si oubli de créer un
+  # environnement dédié): si le secret d'environnement
+  # DEPLOY_PATH est defini (sécu tip: pour ne pas exposer
+  # chemin sur machine cible)
+  # il a précédence.
+
+  ## Debut: environnement de dev en CD.
+  deva:
+    needs: publish-image
+    if: >-
+      (github.event_name == 'push' && github.ref_name == 'deva')
+      || (github.event_name == 'workflow_dispatch' && inputs.environment == 'deva')
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: deva
+      deploy_path: /home/heigdeploy/heig/deva-pdg
+    secrets: inherit
+
+  devb:
+    needs: publish-image
+    if: >-
+      (github.event_name == 'push' && github.ref_name == 'devb')
+      || (github.event_name == 'workflow_dispatch' && inputs.environment == 'devb')
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: devb
+      deploy_path: /home/heigdeploy/heig/devb-pdg
+    secrets: inherit
+
+  devc:
+    needs: publish-image
+    if: >-
+      (github.event_name == 'push' && github.ref_name == 'devc')
+      || (github.event_name == 'workflow_dispatch' && inputs.environment == 'devc')
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: devc
+      deploy_path: /home/heigdeploy/heig/devc-pdg
+    secrets: inherit
+  ## / Fin: environnement de dev en CD.
+
+
+  ## Staging et production
+  staging:
+    needs: publish-image
+    if: >-
+      (github.event_name == 'push' && github.ref_name == 'staging')
+      || (github.event_name == 'workflow_dispatch' && inputs.environment == 'staging')
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: staging
+      deploy_path: /home/heigdeploy/heig/staging-pdg
+    secrets: inherit
+
+  production:
+    needs: publish-image
+    if: >-
+      (github.event_name == 'push' && github.ref_name == 'main')
+      || (github.event_name == 'workflow_dispatch' && inputs.environment == 'production')
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: production
+      deploy_path: /home/heigdeploy/heig/prod-pdg
+    secrets: inherit
+  ## /

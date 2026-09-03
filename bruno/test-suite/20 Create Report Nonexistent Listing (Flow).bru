@@ -1,0 +1,24 @@
+meta {
+  name: 20 Create Report Nonexistent Listing (Flow)
+  type: http
+  seq: 20
+}
+
+post {
+  url: {{baseUrl}}/reports
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "listingId": 999999999,
+    "reason": "Ne devrait pas exister"
+  }
+}
+
+tests {
+  test("renvoie 404 pour une annonce inexistante", function () {
+    expect(res.getStatus()).to.equal(404);
+  });
+}

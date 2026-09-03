@@ -1,0 +1,7 @@
+# suite de tests Bruno..
+# Les mots de passe dans fichiers de tests sont factices.
+[allowlist]
+  description = "Fixtures Bruno"
+  paths = [
+    '''^bruno/.*\\.bru$''',
+  ]
