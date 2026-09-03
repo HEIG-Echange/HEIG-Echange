@@ -61,3 +61,57 @@ Le fichier `.env.example` précise que phpMyAdmin est exposé sur le port `8082`
 Une fois les conteneurs démarrés, l'application est accessible par défaut via `http://localhost:3000` avec la configuration par défaut fournie dans `.env.example`.
 
 Si le profil `tools` est activé, phpMyAdmin est accessible par défaut `http://localhost:8082`.
+
+## Jeu de données d'exemple
+
+Le script `scripts/seed_sample_data.py` remplit une instance avec des données de
+démonstration : 10 comptes étudiants (`essai1@heig-vd.ch` … `essai10@heig-vd.ch`),
+un compte administrateur (`echange.admin@heig-vd.ch`), et 30 annonces réparties
+sur les 5 premiers comptes d'essai (6 chacun), chacune avec 1 à 3 photos
+générées. Tous les comptes partagent le mot de passe `heigpdg2026`.
+
+Il n'utilise que la bibliothèque standard Python : aucun `pip install`.
+
+Le script crée les comptes et les annonces via l'API HTTP, comme un vrai
+utilisateur. Il a donc besoin que l'application expose les codes de
+confirmation d'email, ce que fait la surcouche de développement
+(`EXPOSE_VERIFICATION_CODE_FOR_TESTING=true` dans `compose.dev.yaml`). **Ne
+jamais activer cette variable en production.**
+
+### Base neuve, puis peuplement
+
+```bash
+python3 scripts/seed_sample_data.py --reset
+```
+
+`--reset` est **destructif** : il détruit les volumes Docker (base de données
+et images déjà envoyées), relance la stack de développement — MariaDB rejoue
+alors `db/init/01-schema-v2.sql` et `db/init/02-seed.sql` sur un volume vide —
+puis peuple l'instance. Une confirmation est demandée (`--yes` pour l'éviter).
+
+### Instance déjà démarrée
+
+```bash
+python3 scripts/seed_sample_data.py
+```
+
+Le script est réentrant : relancé sur une base déjà peuplée, il réutilise les
+comptes existants et ne republie que les annonces manquantes.
+
+### Options utiles
+
+- `--dry-run` : affiche ce qui serait créé, sans rien envoyer.
+- `--base-url https://staging.exemple.ch` : cible une autre instance.
+- `--password <valeur>` : change le mot de passe commun (8 caractères minimum).
+- `--photos-dir ./mes-photos` : utilise de vraies images au lieu des visuels générés.
+- `--skip-admin-promotion` : ne passe pas le compte admin en rôle `admin`.
+
+L'API n'expose volontairement aucune route permettant de s'attribuer les droits
+d'administration : le passage de `echange.admin@heig-vd.ch` en rôle `admin` est
+la seule étape écrite directement en base, via `docker compose exec db`. Si
+Docker n'est pas joignable, le script affiche la requête à jouer soi-même dans
+phpMyAdmin :
+
+```sql
+UPDATE users SET role = 'admin' WHERE email = 'echange.admin@heig-vd.ch';
+```
