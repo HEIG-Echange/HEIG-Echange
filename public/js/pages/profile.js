@@ -25,6 +25,13 @@ document.getElementById("email").textContent = user.email;
 document.getElementById("role-badge").textContent =
   user.role === "admin" ? "Administrateur" : "Étudiant·e";
 
+// Acces aux reglages reserves aux admins (aujourd hui : prompts de l analyse
+// IA des photos). Le lien reste cache pour les autres — l API refuse de toute
+// facon les routes /admin a un compte non administrateur.
+if (user.role === "admin") {
+  document.getElementById("admin-links").classList.remove("hidden");
+}
+
 const logoutBtn = document.getElementById("logout-btn");
 logoutBtn.innerHTML = icon("logout");
 logoutBtn.addEventListener("click", () => logout());
@@ -60,17 +67,6 @@ document.getElementById("share-btn").addEventListener("click", async (event) => 
     prompt("Copiez le lien de votre profil :", profileUrl);
   }
 });
-
-// Nombre de groupes/amis prioritaires : fonctionnalite en apercu local
-// uniquement (pas encore de table en base), voir priority-friends.js.
-const FRIEND_GROUPS_KEY = "heig-echange:priority-groups";
-try {
-  const groups = JSON.parse(localStorage.getItem(FRIEND_GROUPS_KEY) ?? "[]");
-  const total = groups.reduce((sum, g) => sum + g.members.length, 0);
-  document.getElementById("friends-count").textContent = String(total);
-} catch {
-  document.getElementById("friends-count").textContent = "0";
-}
 
 // ---------------------------------------------------------------------------
 // Mes annonces
@@ -118,7 +114,14 @@ function renderListings() {
   listingsEl.className = `listing-grid${viewMode === "compact" ? " is-compact" : ""}`;
   listingsEl.innerHTML = "";
 
-  document.getElementById("active-count").textContent = String(myListings.length);
+  // Les deux compteurs de l'en-tete se deduisent des annonces deja chargees :
+  // pas de requete supplementaire.
+  document.getElementById("active-count").textContent = String(
+    myListings.filter((l) => l.status !== "closed").length
+  );
+  document.getElementById("given-count").textContent = String(
+    myListings.filter((l) => l.status === "closed").length
+  );
 
   if (myListings.length === 0) {
     listingsEl.innerHTML = `

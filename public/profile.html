@@ -48,9 +48,19 @@
                 <p id="active-count" class="text-2xl font-extrabold">—</p>
                 <p class="text-xs text-mutedfg">Objets en ligne</p>
               </div>
-              <a href="priority-friends.html" class="border border-appfg/10 rounded-xl px-3 py-3 hover:border-brand/40 transition-colors">
-                <p id="friends-count" class="text-2xl font-extrabold">0</p>
-                <p class="text-xs text-mutedfg">Amis prioritaires</p>
+              <div class="border border-appfg/10 rounded-xl px-3 py-3">
+                <p id="given-count" class="text-2xl font-extrabold">—</p>
+                <p class="text-xs text-mutedfg">Objets donnés</p>
+              </div>
+            </div>
+
+            <!-- Reserve aux administrateurs : demasque par profile.js selon le
+                 role renvoye par /auth/me. -->
+            <div id="admin-links" class="hidden mt-3">
+              <a href="admin-ai.html"
+                 class="flex items-center justify-between gap-2 border border-appfg/10 rounded-xl px-3 py-3 text-sm font-bold hover:border-brand/40 transition-colors">
+                <span>Réglages de l'analyse IA</span>
+                <span aria-hidden="true">›</span>
               </a>
             </div>
           </section>

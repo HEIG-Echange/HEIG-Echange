@@ -8,15 +8,31 @@ await requireUser();
 const form = createListingForm();
 await form.init();
 
+// L'annonce doit exister avant que ses photos puissent partir (elles ont besoin
+// de son id). Si l'envoi des photos échoue — fichier refusé, connexion coupée —
+// l'annonce, elle, est déjà créée : on retient son id pour qu'un nouveau clic
+// sur « Publier » reprenne à l'envoi des photos au lieu de créer un doublon.
+let createdListing = null;
+
 form.onSubmit(
   async (payload, { uploadPendingPhotos, setBusyLabel }) => {
-    const listing = await api.post("/listings", payload);
+    if (!createdListing) {
+      createdListing = await api.post("/listings", payload);
+    } else {
+      // Deuxième essai : l'utilisateur a pu corriger un champ entre-temps.
+      setBusyLabel("Enregistrement…");
+      await api.patch(`/listings/${createdListing.id}`, payload);
+    }
 
-    // Les photos partent apres la creation : elles ont besoin de l'id.
     setBusyLabel("Envoi des photos…");
-    await uploadPendingPhotos(listing.id);
+    try {
+      await uploadPendingPhotos(createdListing.id);
+    } catch (err) {
+      err.message = `L'annonce est enregistrée, mais une photo n'a pas pu être envoyée — ${err.message} Retirez-la ou réessayez.`;
+      throw err;
+    }
 
-    document.getElementById("success-view-listing").href = `listing.html?id=${listing.id}`;
+    document.getElementById("success-view-listing").href = `listing.html?id=${createdListing.id}`;
 
     const formView = document.getElementById("form-view");
     formView.classList.remove("contents");

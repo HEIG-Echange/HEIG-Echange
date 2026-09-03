@@ -1,0 +1,29 @@
+meta {
+  name: Get AI Settings
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{baseUrl}}/admin/ai-settings
+  body: none
+  auth: none
+}
+
+docs {
+  Reglages de l'analyse IA des photos (fournisseur : Hugging Face).
+
+  Renvoie :
+    - provider     : "huggingface"
+    - configured   : le serveur a-t-il un jeton (HUGGINGFACE_API_KEY) ? Sinon
+                     POST /listings/ai/analyze repond 503.
+    - effective    : { model, systemPrompt, userPrompt } reellement utilises
+    - defaults     : les memes champs sans la personnalisation
+    - overridden   : un booleen par champ (la valeur vient-elle de la base ?)
+    - placeholders : marqueurs remplaces dans le prompt d'analyse,
+                     {{categories}} et {{conditions}}
+
+  Precedence : base de donnees > variable d'environnement > defaut du code.
+
+  Reserve aux administrateurs.
+}

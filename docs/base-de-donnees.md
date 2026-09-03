@@ -38,6 +38,7 @@ Tout tourne dans Docker : aucun serveur SQL n'est installé sur l'hôte.
 | `messages` | 5 (contact donneur ↔ intéressé) |
 | `reports` | 9 (signalement de contenu) |
 | `moderation_logs` | 9 (historique des actions admin) |
+| `app_settings` | réglages modifiables par un admin sans redéploiement (aujourd'hui : modèle et prompts de l'analyse IA des photos) |
 
 > Le domaine de l'email est vérifié par un `CHECK` en base *et* par la
 > validation applicative (référence). Les mots de passe ne sont stockés que
@@ -138,6 +139,7 @@ Les migrations sont numérotées et doivent être appliquées **dans l'ordre** :
 | `002-email-verification.sql` | confirmation d'adresse à l'inscription |
 | `003-listing-interests.sql` | table `listing_interests` |
 | `004-email-reverification.sql` | `users.reverification_reminder_sent_at` + index `idx_users_email_verified` |
+| `005-app-settings.sql` | table `app_settings` (modèle et prompts de l'analyse IA) |
 
 En développement, on peut simplement repartir de zéro :
 

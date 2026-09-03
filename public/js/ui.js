@@ -39,6 +39,9 @@ const ICONS = {
   edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" width="16" height="16"><path d="M4 20h4l10-10-4-4L4 16z"/><path d="m14.5 5.5 4 4"/></svg>',
   trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="16" height="16"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg>',
   logout: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="18" height="18"><path d="M14 5h4a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-4"/><path d="M10 8 6 12l4 4M6 12h9"/></svg>',
+  // Bulle de discussion : sert au bouton « Contacter via Teams ». On ne
+  // reproduit pas le logo Microsoft (marque deposee), une icone neutre suffit.
+  chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" width="18" height="18"><path d="M4 5.5h16a1 1 0 0 1 1 1V16a1 1 0 0 1-1 1H9.5L5 20.5V17H4a1 1 0 0 1-1-1V6.5a1 1 0 0 1 1-1z"/></svg>',
   box: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" width="34" height="34"><path d="M3 8.5 12 4l9 4.5v7L12 20l-9-4.5z"/><path d="M3 8.5 12 13l9-4.5M12 13v7"/></svg>',
 };
 
@@ -56,7 +59,6 @@ export function icon(name) {
 const NAV_ITEMS = [
   { key: "home", href: "index.html", label: "Accueil", icon: "home", mobile: true },
   { key: "add", href: "add-listing.html", label: "Mettre à disposition", icon: "plus", mobile: "fab" },
-  { key: "friends", href: "priority-friends.html", label: "Amis prioritaires", icon: "star", mobile: false },
   { key: "profile", href: "profile.html", label: "Profil", icon: "user", mobile: true },
 ];
 
