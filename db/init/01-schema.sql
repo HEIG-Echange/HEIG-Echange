@@ -42,6 +42,9 @@ CREATE TABLE users (
   email_verified_at TIMESTAMP        NULL DEFAULT NULL,        -- confirmation par code recu par email
   verification_code VARCHAR(8)       NULL DEFAULT NULL,
   verification_code_expires_at TIMESTAMP NULL DEFAULT NULL,
+  -- Rappel "votre adresse expire bientot" deja envoye : evite un email par
+  -- jour tant que l utilisateur n a pas reconfirme (voir src/jobs/).
+  reverification_reminder_sent_at TIMESTAMP NULL DEFAULT NULL,
   role           ENUM('user','admin') NOT NULL DEFAULT 'user',
   is_blocked     BOOLEAN         NOT NULL DEFAULT FALSE,     -- req 9 : blocage
   blocked_reason VARCHAR(255)        NULL DEFAULT NULL,
@@ -52,6 +55,9 @@ CREATE TABLE users (
   PRIMARY KEY (id),
   UNIQUE KEY uq_users_email (email),
   KEY idx_users_role (role),
+  -- La confirmation d email ne vaut que 6 mois : colonne filtree a chaque
+  -- listing d annonces et balayee par le job de relance.
+  KEY idx_users_email_verified (email_verified_at),
   -- Accepte le domaine racine et ses sous-domaines (ex. @edu.hes-so.ch).
   CONSTRAINT chk_users_email_domain CHECK (
     email LIKE '%@hes-so.ch'  OR email LIKE '%.hes-so.ch'  OR
@@ -210,3 +216,24 @@ CREATE TABLE moderation_logs (
     FOREIGN KEY (actor_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+
+-- ---------------------------------------------------------------------------
+-- app_settings — parametres de l'application modifiables par un admin
+--
+-- Table cle/valeur volontairement generique. Une cle absente = "valeur par
+-- defaut du code" : on n'insere donc rien au seed, et supprimer une ligne
+-- revient a revenir au defaut.
+--
+-- Utilisee aujourd'hui par l'analyse IA des photos (cles ai.model,
+-- ai.system_prompt, ai.user_prompt — voir src/aiSettings.ts) pour que les
+-- prompts soient modifiables depuis /admin-ai.html sans redeploiement.
+-- ---------------------------------------------------------------------------
+CREATE TABLE app_settings (
+  setting_key   VARCHAR(64)     NOT NULL,
+  setting_value TEXT                NULL,
+  updated_at    TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  updated_by    BIGINT UNSIGNED     NULL,
+  PRIMARY KEY (setting_key),
+  CONSTRAINT fk_app_settings_user
+    FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

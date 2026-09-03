@@ -30,7 +30,7 @@ Tout tourne dans Docker : aucun serveur SQL n'est installé sur l'hôte.
 
 | Table | Exigences couvertes |
 |---|---|
-| `users` | 0 (email `@hes-so.ch` / `@heig-vd.ch`), 7 (profil, avatar), 8 (`deleted_at`), 9 (`role`, `is_blocked`) |
+| `users` | 0 (email `@hes-so.ch` / `@heig-vd.ch`), 7 (profil, avatar), 8 (`deleted_at`), 9 (`role`, `is_blocked`), confirmation d'adresse (`email_verified_at`, `verification_code`, `reverification_reminder_sent_at`) |
 | `categories` | 2 (filtres) |
 | `listings` | 1 (grille), 2 (recherche FULLTEXT + catégorie), 3 (CRUD), 6 (`status`/`closed_at`) |
 | `listing_photos` | 1 (vignette), 4 (carrousel, `position`) |
@@ -38,10 +38,43 @@ Tout tourne dans Docker : aucun serveur SQL n'est installé sur l'hôte.
 | `messages` | 5 (contact donneur ↔ intéressé) |
 | `reports` | 9 (signalement de contenu) |
 | `moderation_logs` | 9 (historique des actions admin) |
+| `app_settings` | réglages modifiables par un admin sans redéploiement (aujourd'hui : modèle et prompts de l'analyse IA des photos) |
 
-> L'authentification passe par l'écosystème Microsoft de l'école : **aucun mot
-> de passe utilisateur n'est stocké**. Le domaine de l'email est vérifié par un
-> `CHECK` en base *et* par la validation applicative (référence).
+> Le domaine de l'email est vérifié par un `CHECK` en base *et* par la
+> validation applicative (référence). Les mots de passe ne sont stockés que
+> sous forme de hash bcrypt (`password_hash`), jamais en clair.
+
+### Confirmation d'adresse et suspension à 6 mois
+
+Quatre colonnes de `users` portent le cycle de vie de l'adresse email :
+
+| Colonne | Rôle |
+|---|---|
+| `email_verified_at` | date de la **dernière** confirmation — c'est elle qui détermine si le compte est actif |
+| `verification_code` | code à 8 chiffres en attente (`NULL` s'il n'y en a pas) |
+| `verification_code_expires_at` | péremption du code (15 minutes) |
+| `reverification_reminder_sent_at` | dernier rappel envoyé, pour ne pas relancer tous les jours |
+
+Une confirmation ne vaut que **180 jours**. Il n'existe volontairement pas de
+colonne `is_suspended` : la suspension est **calculée** à partir de
+`email_verified_at`, ce qui évite tout état incohérent si le job de relance ne
+tourne pas. Concrètement, les requêtes publiques joignent `users` et filtrent
+sur le fragment produit par `activeAccountSql()`
+(`src/auth/emailVerification.ts`) :
+
+```sql
+u.deleted_at IS NULL
+AND u.is_blocked = FALSE
+AND u.email_verified_at IS NOT NULL
+AND u.email_verified_at > (NOW() - INTERVAL 180 DAY)
+```
+
+Les annonces d'un compte suspendu ne sont **ni supprimées ni modifiées** :
+elles sont simplement exclues des lectures publiques, et réapparaissent telles
+quelles dès que l'utilisateur reconfirme son adresse.
+
+L'index `idx_users_email_verified` (migration 004) sert ce filtre, présent sur
+chaque listing d'annonces, ainsi que le balayage quotidien du job de relance.
 
 ## Accès administrateur (phpMyAdmin)
 
@@ -98,6 +131,16 @@ docker compose exec -T -e MYSQL_PWD="$MARIADB_PASSWORD" \
   db mariadb -u "$MARIADB_USER" "$MARIADB_DATABASE" < db/migrations/00X-xxx.sql
 ```
 
+Les migrations sont numérotées et doivent être appliquées **dans l'ordre** :
+
+| Migration | Contenu |
+|---|---|
+| `001-listings-location.sql` | colonne `listings.location` (lieu libre) |
+| `002-email-verification.sql` | confirmation d'adresse à l'inscription |
+| `003-listing-interests.sql` | table `listing_interests` |
+| `004-email-reverification.sql` | `users.reverification_reminder_sent_at` + index `idx_users_email_verified` |
+| `005-app-settings.sql` | table `app_settings` (modèle et prompts de l'analyse IA) |
+
 En développement, on peut simplement repartir de zéro :
 
 ```bash
@@ -105,3 +148,12 @@ docker compose down -v   # ATTENTION : -v supprime le volume db-data
 docker compose up --build
 ```
 
+## Données de démonstration
+
+`scripts/seed_demo_data.py` remplit une instance vide avec les comptes et les
+annonces de la maquette Figma (photos multiples comprises), pour une démo ou
+
+```bash
+docker compose -f compose.yaml -f compose.dev.yaml up --build -d
+python3 scripts/seed_demo_data.py
+```

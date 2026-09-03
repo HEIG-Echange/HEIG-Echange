@@ -1,0 +1,39 @@
+meta {
+  name: Add Photos
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/listings/{{listingId}}/photos
+  body: multipartForm
+  auth: none
+}
+
+body:multipart-form {
+  @file(photos): 
+  @file(photos): 
+}
+
+docs {
+  Ajoute une ou plusieurs photos a une annonce existante.
+
+  Le champ "photos" accepte plusieurs fichiers dans la meme requete (c'est ce
+  qu'envoie le formulaire web). Le champ historique "photo" reste accepte pour
+  un fichier unique.
+
+  Selectionnez les fichiers dans l'onglet Body avant d'envoyer.
+
+  Reponse : un objet unique si une seule photo a ete envoyee (forme
+  historique), sinon { "photos": [ ... ] }. Chaque photo porte "url" (chemin
+  relatif) et "absoluteUrl" (base sur PUBLIC_BASE_URL, pour le partage).
+
+  Limite : 10 photos par annonce, 5 Mo par fichier, formats jpeg/png/webp/gif.
+  Reserve au proprietaire de l'annonce (ou a un admin).
+}
+
+script:pre-request {
+  if (!bru.getVar("listingId")) {
+    bru.setVar("listingId", 1);
+  }
+}

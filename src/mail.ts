@@ -48,3 +48,18 @@ export async function sendEmail({
 
   return true;
 }
+
+// Envoi d'un gabarit (voir src/mailTemplates.ts). Ne jette jamais : un service
+// mail indisponible ne doit pas faire echouer une inscription ou un job — on
+// journalise et on renvoie false, l'utilisateur peut redemander un code.
+export async function sendTemplate(
+  to: string,
+  template: { subject: string; body: string }
+): Promise<boolean> {
+  try {
+    return await sendEmail({ to, ...template });
+  } catch (err) {
+    console.error(`Echec envoi email a ${to} :`, err);
+    return false;
+  }
+}

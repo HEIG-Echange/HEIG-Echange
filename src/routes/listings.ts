@@ -1,11 +1,16 @@
 import fs from "fs";
+import path from "path";
 import { Router } from "express";
+import type { Request, Response } from "express";
+import QRCode from "qrcode";
 import type { RowDataPacket, ResultSetHeader } from "mysql2";
 import { pool } from "../db";
 import { requireAuth } from "../middleware/requireAuth";
 import { uploadImage } from "../upload";
 import { aiConfigured, analyzeItemPhoto } from "../ai";
 import { sendEmail } from "../mail";
+import { PUBLIC_BASE_URL, UPLOAD_DIR, absoluteUrl } from "../config";
+import { activeAccountSql } from "../auth/emailVerification";
 
 export const listingsRouter = Router();
 
@@ -15,6 +20,10 @@ const MIME_TO_MEDIA = {
   "image/webp": "image/webp",
   "image/gif": "image/gif",
 } as const;
+
+// Plafond de photos par annonce. Le carrousel reste lisible, et un utilisateur
+// ne peut pas remplir le volume d'uploads a lui seul.
+export const MAX_PHOTOS_PER_LISTING = 10;
 
 // En miroir de l'ENUM item_condition dans db/init/01-schema.sql.
 const ITEM_CONDITIONS = [
@@ -26,10 +35,22 @@ const ITEM_CONDITIONS = [
 ] as const;
 type ItemCondition = (typeof ITEM_CONDITIONS)[number];
 
+// En miroir de l'ENUM status. "reserved" et "closed" sont pilotables par le
+// proprietaire depuis l'edition de son annonce.
+const LISTING_STATUSES = ["available", "reserved", "closed"] as const;
+type ListingStatus = (typeof LISTING_STATUSES)[number];
+
 function isItemCondition(value: unknown): value is ItemCondition {
   return (
     typeof value === "string" &&
     (ITEM_CONDITIONS as readonly string[]).includes(value)
+  );
+}
+
+function isListingStatus(value: unknown): value is ListingStatus {
+  return (
+    typeof value === "string" &&
+    (LISTING_STATUSES as readonly string[]).includes(value)
   );
 }
 
@@ -44,11 +65,12 @@ interface ListingRow extends RowDataPacket {
   title: string;
   description: string;
   item_condition: ItemCondition;
-  status: "available" | "reserved" | "closed";
+  status: ListingStatus;
   location: string | null;
   is_priority: number;
   end_priority_at: string | null;
   photo_url: string | null;
+  photo_count: number;
   created_at: string;
   updated_at: string;
   closed_at: string | null;
@@ -114,6 +136,13 @@ async function canAccessListing(
   return rows.length > 0;
 }
 
+// URL publique de la fiche annonce. Construite sur PUBLIC_BASE_URL et non sur
+// l'hote de la requete : un lien partage par mail ou encode dans un QR code
+// doit pointer sur le domaine reel, jamais sur le localhost du visiteur.
+export function listingShareUrl(id: number): string {
+  return `${PUBLIC_BASE_URL}/listing.html?id=${id}`;
+}
+
 // includeContact : n'expose le nom et l'email du proprietaire qu'aux visiteurs
 // connectes. Un visiteur anonyme voit l'annonce mais aucune info de contact
 // (req: laisser voir les annonces sans etre connecte, sans divulguer nom/email).
@@ -133,7 +162,14 @@ function toListingJson(row: ListingRow, includeContact: boolean) {
     location: row.location,
     isPriority: isPriorityActive(row),
     endPriorityAt: row.end_priority_at,
+    // Chemin relatif : c'est ce que consomme le frontend pour afficher.
     photoUrl: row.photo_url,
+    // Meme image en absolu : pour un partage (mail, reseau social, QR) ou une
+    // balise og:image, un chemin relatif ne veut rien dire hors du site.
+    photoAbsoluteUrl: absoluteUrl(row.photo_url),
+    photoCount: Number(row.photo_count ?? 0),
+    shareUrl: listingShareUrl(row.id),
+    qrUrl: `${PUBLIC_BASE_URL}/listings/${row.id}/qr`,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     closedAt: row.closed_at,
@@ -148,6 +184,8 @@ const LISTING_SELECT = `
     l.is_priority, l.end_priority_at,
     (SELECT p.url FROM listing_photos p
        WHERE p.listing_id = l.id ORDER BY p.position ASC LIMIT 1) AS photo_url,
+    (SELECT COUNT(*) FROM listing_photos p
+       WHERE p.listing_id = l.id) AS photo_count,
     l.created_at, l.updated_at, l.closed_at
   FROM listings l
   LEFT JOIN users u ON u.id = l.owner_id
@@ -233,7 +271,13 @@ async function replacePriorityGroups(listingId: number, groupIds: number[]): Pro
   );
 }
 
-// POST /listings — cree une annonce , faut etre connecte 
+// Une annonce n'est visible publiquement que si son proprietaire est un compte
+// actif : ni supprime, ni bloque, ni suspendu faute d'avoir reconfirme son
+// adresse email dans les 6 mois. Les annonces ne sont pas supprimees pour
+// autant — elles reapparaissent des que le compte est reactive.
+const VISIBLE_OWNER = activeAccountSql("u");
+
+// POST /listings — cree une annonce , faut etre connecte
 listingsRouter.post("/", requireAuth, async (req, res) => {
   const { categoryId, title, description, itemCondition, location } =
     req.body ?? {};
@@ -301,6 +345,9 @@ listingsRouter.post("/", requireAuth, async (req, res) => {
       isPriority: priority?.isPriority ?? false,
       endPriorityAt: priority?.endPriorityAt ?? null,
       ...(priority?.isPriority ? { priorityGroupIds: priority.groupIds } : {}),
+      photoCount: 0,
+      shareUrl: listingShareUrl(result.insertId),
+      qrUrl: `${PUBLIC_BASE_URL}/listings/${result.insertId}/qr`,
     });
   } catch (err) {
     // FK invalide (categoryId inexistant) -> erreur utilisateur, pas un 500.
@@ -312,7 +359,55 @@ listingsRouter.post("/", requireAuth, async (req, res) => {
   }
 });
 
-// PATCH /listings/:id — modifie une annonce existante, mise a jour partielle , reservé aux proprietaire ou un admin.
+/**
+ * Verifie que l'appelant peut modifier l'annonce `id` : proprietaire, ou admin.
+ * Repond lui-meme (404 / 403) et renvoie null si l'acces est refuse — l'appelant
+ * n'a plus qu'a `return`.
+ */
+async function loadEditableListing(
+  listingId: number,
+  userId: number | undefined,
+  res: Response,
+  actionLabel: string
+): Promise<{ ownerId: number; isAdmin: boolean } | null> {
+  interface OwnerRow extends RowDataPacket {
+    owner_id: number;
+  }
+  const [rows] = await pool.query<OwnerRow[]>(
+    "SELECT owner_id FROM listings WHERE id = ? AND deleted_at IS NULL",
+    [listingId]
+  );
+  const listing = rows[0];
+
+  if (!listing) {
+    res.status(404).json({ error: "annonce introuvable" });
+    return null;
+  }
+
+  if (listing.owner_id === userId) {
+    return { ownerId: listing.owner_id, isAdmin: false };
+  }
+
+  interface RoleRow extends RowDataPacket {
+    role: "user" | "admin";
+  }
+  const [userRows] = await pool.query<RoleRow[]>(
+    "SELECT role FROM users WHERE id = ?",
+    [userId]
+  );
+
+  if (userRows[0]?.role !== "admin") {
+    res.status(403).json({ error: `seul le proprietaire peut ${actionLabel}` });
+    return null;
+  }
+
+  return { ownerId: listing.owner_id, isAdmin: true };
+}
+
+// PATCH /listings/:id — modifie une annonce existante, mise a jour partielle ,
+// reserve au proprietaire ou a un admin. C'est ce qui permet a un.e etudiant.e
+// de corriger ou de faire evoluer son annonce apres publication (changer le
+// titre, la categorie, le lieu, ou la passer en "reservee" / "donnee").
 listingsRouter.patch("/:id", requireAuth, async (req, res) => {
   const id = Number(req.params.id);
 
@@ -321,35 +416,15 @@ listingsRouter.patch("/:id", requireAuth, async (req, res) => {
     return;
   }
 
-  interface OwnerRow extends RowDataPacket {
-    owner_id: number;
-  }
-  const [rows] = await pool.query<OwnerRow[]>(
-    "SELECT owner_id FROM listings WHERE id = ? AND deleted_at IS NULL",
-    [id]
+  const access = await loadEditableListing(
+    id,
+    req.session.userId,
+    res,
+    "modifier cette annonce"
   );
-  const listing = rows[0];
+  if (!access) return;
 
-  if (!listing) {
-    res.status(404).json({ error: "annonce introuvable" });
-    return;
-  }
-
-  if (listing.owner_id !== req.session.userId) {
-    interface RoleRow extends RowDataPacket {
-      role: "user" | "admin";
-    }
-    const [userRows] = await pool.query<RoleRow[]>(
-      "SELECT role FROM users WHERE id = ?",
-      [req.session.userId]
-    );
-    if (userRows[0]?.role !== "admin") {
-      res.status(403).json({ error: "seul le proprietaire peut modifier cette annonce" });
-      return;
-    }
-  }
-
-  const { categoryId, title, description, itemCondition, location } =
+  const { categoryId, title, description, itemCondition, location, status } =
     req.body ?? {};
   const sets: string[] = [];
   const params: (string | number | null | Date)[] = [];
@@ -407,11 +482,29 @@ listingsRouter.patch("/:id", requireAuth, async (req, res) => {
   // rester coherente : cf. parsePriorityInput. owner_id ici est celui de
   // l'annonce (le proprietaire choisit parmi SES groupes), pas forcement
   // req.session.userId si c'est un admin qui modifie.
-  const priority = await parsePriorityInput(req.body ?? {}, listing.owner_id, res);
+  const priority = await parsePriorityInput(req.body ?? {}, access.ownerId, res);
   if (priority === undefined) return; // reponse d'erreur deja envoyee
   if (priority !== null) {
     sets.push("is_priority = ?", "end_priority_at = ?");
     params.push(priority.isPriority ? 1 : 0, priority.endPriorityAt);
+  }
+
+  if (status !== undefined) {
+    if (!isListingStatus(status)) {
+      res.status(400).json({
+        error: `status doit etre l'un de : ${LISTING_STATUSES.join(", ")}`,
+      });
+      return;
+    }
+    sets.push("status = ?");
+    params.push(status);
+    // closed_at suit le statut : renseigne a la cloture, efface si l'annonce
+    // est remise en ligne (l'objet n'a finalement pas ete donne).
+    sets.push(
+      status === "closed"
+        ? "closed_at = COALESCE(closed_at, CURRENT_TIMESTAMP)"
+        : "closed_at = NULL"
+    );
   }
 
   if (sets.length === 0) {
@@ -448,7 +541,7 @@ listingsRouter.patch("/:id", requireAuth, async (req, res) => {
 listingsRouter.get("/", async (req, res) => {
   const { categoryId, ownerId, q } = req.query;
 
-  const where = ["l.deleted_at IS NULL"];
+  const where = ["l.deleted_at IS NULL", VISIBLE_OWNER];
   const params: (string | number)[] = [];
 
   if (typeof categoryId === "string" && categoryId.trim()) {
@@ -520,7 +613,7 @@ listingsRouter.get("/interested", requireAuth, async (req, res) => {
   res.json(rows.map((row) => row.listing_id));
 });
 
-// GET /listings/:id — fiche detail d'une annonce 
+// GET /listings/:id — fiche detail d'une annonce
 listingsRouter.get("/:id", async (req, res) => {
   const id = Number(req.params.id);
 
@@ -530,7 +623,7 @@ listingsRouter.get("/:id", async (req, res) => {
   }
 
   const [rows] = await pool.query<ListingRow[]>(
-    `${LISTING_SELECT} WHERE l.id = ? AND l.deleted_at IS NULL`,
+    `${LISTING_SELECT} WHERE l.id = ? AND l.deleted_at IS NULL AND ${VISIBLE_OWNER}`,
     [id]
   );
 
@@ -562,7 +655,13 @@ listingsRouter.get("/:id", async (req, res) => {
 
   res.json({
     ...toListingJson(listing, includeContact),
-    photos: photos.map((p) => ({ id: p.id, url: p.url, position: p.position })),
+    photos: photos.map((p) => ({
+      id: p.id,
+      url: p.url,
+      // Version partageable de la meme image (voir photoAbsoluteUrl).
+      absoluteUrl: absoluteUrl(p.url),
+      position: p.position,
+    })),
     ...(priorityGroupIds ? { priorityGroupIds } : {}),
   });
 });
@@ -596,6 +695,44 @@ async function loadAccessibleListing(
 
   return listing;
 }
+
+// GET /listings/:id/qr — QR code (SVG) pointant vers la fiche de l'annonce.
+// Le domaine encode provient de PUBLIC_BASE_URL : scanner le code depuis un
+// telephone doit ouvrir le site public, pas l'adresse locale du serveur.
+listingsRouter.get("/:id/qr", async (req, res) => {
+  const id = Number(req.params.id);
+
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: "id invalide" });
+    return;
+  }
+
+  interface ExistsRow extends RowDataPacket {
+    id: number;
+  }
+  const [rows] = await pool.query<ExistsRow[]>(
+    `SELECT l.id FROM listings l
+       LEFT JOIN users u ON u.id = l.owner_id
+      WHERE l.id = ? AND l.deleted_at IS NULL AND ${VISIBLE_OWNER}`,
+    [id]
+  );
+
+  if (!rows[0]) {
+    res.status(404).json({ error: "annonce introuvable" });
+    return;
+  }
+
+  const svg = await QRCode.toString(listingShareUrl(id), {
+    type: "svg",
+    margin: 1,
+    color: { dark: "#1a1816", light: "#ffffff" },
+  });
+
+  res.type("image/svg+xml");
+  // Cache court : le contenu est stable pour un id donne.
+  res.set("Cache-Control", "public, max-age=3600");
+  res.send(svg);
+});
 
 // GET /listings/:id/interest — voir les personne interesse par une anonce
 listingsRouter.get("/:id/interest", requireAuth, async (req, res) => {
@@ -737,37 +874,17 @@ listingsRouter.delete("/:id", requireAuth, async (req, res) => {
     return;
   }
 
-  interface OwnerRow extends RowDataPacket {
-    owner_id: number;
-  }
-  const [rows] = await pool.query<OwnerRow[]>(
-    "SELECT owner_id FROM listings WHERE id = ? AND deleted_at IS NULL",
-    [id]
+  const access = await loadEditableListing(
+    id,
+    req.session.userId,
+    res,
+    "retirer cette annonce"
   );
-  const listing = rows[0];
+  if (!access) return;
 
-  if (!listing) {
-    res.status(404).json({ error: "annonce introuvable" });
-    return;
-  }
-
-  let deletedByAdmin = false;
   let reason: string | undefined;
 
-  if (listing.owner_id !== req.session.userId) {
-    interface RoleRow extends RowDataPacket {
-      role: "user" | "admin";
-    }
-    const [userRows] = await pool.query<RoleRow[]>(
-      "SELECT role FROM users WHERE id = ?",
-      [req.session.userId]
-    );
-    if (userRows[0]?.role !== "admin") {
-      res.status(403).json({ error: "seul le proprietaire peut retirer cette annonce" });
-      return;
-    }
-    deletedByAdmin = true;
-
+  if (access.isAdmin) {
     const bodyReason = (req.body ?? {}).reason;
     if (typeof bodyReason !== "string" || !bodyReason.trim()) {
       res.status(400).json({ error: "reason est requis pour une suppression par un admin" });
@@ -781,7 +898,7 @@ listingsRouter.delete("/:id", requireAuth, async (req, res) => {
     [id]
   );
 
-  if (deletedByAdmin) {
+  if (access.isAdmin) {
     await pool.query(
       "INSERT INTO moderation_logs (actor_id, action, target_type, target_id, details) VALUES (?, 'delete_listing', 'listing', ?, ?)",
       [req.session.userId, id, JSON.stringify({ reason })]
@@ -791,73 +908,222 @@ listingsRouter.delete("/:id", requireAuth, async (req, res) => {
   res.status(204).send();
 });
 
-// POST /listings/:id/photos — ajoute une photo (multipart, champ "photo") a une
-// annonce existante. Reserve au proprietaire (ou admin). Le fichier est stocke
-// sur disque (voir UPLOAD_DIR) et servi via /uploads.
+// Accepte indifferemment un champ "photo" (une image, compatibilite avec les
+// clients existants) et un champ "photos" (plusieurs images d'un coup, ce
+// qu'envoie le formulaire web).
+const acceptPhotos = uploadImage.fields([
+  { name: "photo", maxCount: MAX_PHOTOS_PER_LISTING },
+  { name: "photos", maxCount: MAX_PHOTOS_PER_LISTING },
+]);
+
+function collectUploadedFiles(req: Request) {
+  const files = req.files as
+    | Record<string, Express.Multer.File[]>
+    | undefined;
+  if (!files) return [];
+  return [...(files.photo ?? []), ...(files.photos ?? [])];
+}
+
+function discardFiles(files: Express.Multer.File[]) {
+  for (const file of files) {
+    fs.unlink(file.path, () => {});
+  }
+}
+
+// POST /listings/:id/photos — ajoute une ou plusieurs photos (multipart, champ
+// "photo" ou "photos") a une annonce existante. Reserve au proprietaire (ou
+// admin). Les fichiers sont stockes sur disque (voir UPLOAD_DIR) et servis via
+// /uploads. Les positions se suivent : la photo en position 0 sert de vignette.
 listingsRouter.post(
   "/:id/photos",
   requireAuth,
-  uploadImage.single("photo"),
+  acceptPhotos,
   async (req, res) => {
     const id = Number(req.params.id);
+    const uploaded = collectUploadedFiles(req);
+
     if (!Number.isInteger(id)) {
+      discardFiles(uploaded);
       res.status(400).json({ error: "id invalide" });
       return;
     }
-    if (!req.file) {
+    if (uploaded.length === 0) {
       res.status(400).json({ error: "photo (fichier image) est requis" });
       return;
     }
 
-    interface OwnerRow extends RowDataPacket {
-      owner_id: number;
-    }
-    const [rows] = await pool.query<OwnerRow[]>(
-      "SELECT owner_id FROM listings WHERE id = ? AND deleted_at IS NULL",
-      [id]
+    const access = await loadEditableListing(
+      id,
+      req.session.userId,
+      res,
+      "ajouter une photo"
     );
-    const listing = rows[0];
-
-    if (!listing) {
-      fs.unlink(req.file.path, () => {});
-      res.status(404).json({ error: "annonce introuvable" });
+    if (!access) {
+      discardFiles(uploaded);
       return;
     }
 
-    if (listing.owner_id !== req.session.userId) {
-      interface RoleRow extends RowDataPacket {
-        role: "user" | "admin";
-      }
-      const [userRows] = await pool.query<RoleRow[]>(
-        "SELECT role FROM users WHERE id = ?",
-        [req.session.userId]
-      );
-      if (userRows[0]?.role !== "admin") {
-        fs.unlink(req.file.path, () => {});
-        res.status(403).json({ error: "seul le proprietaire peut ajouter une photo" });
-        return;
-      }
-    }
-
     // Position = a la suite des photos existantes.
-    interface MaxRow extends RowDataPacket {
+    interface CountRow extends RowDataPacket {
+      total: number;
       next_position: number;
     }
-    const [maxRows] = await pool.query<MaxRow[]>(
-      "SELECT COALESCE(MAX(position) + 1, 0) AS next_position FROM listing_photos WHERE listing_id = ?",
+    const [countRows] = await pool.query<CountRow[]>(
+      `SELECT COUNT(*) AS total, COALESCE(MAX(position) + 1, 0) AS next_position
+         FROM listing_photos WHERE listing_id = ?`,
       [id]
     );
-    const position = Number(maxRows[0]?.next_position ?? 0);
+    const existing = Number(countRows[0]?.total ?? 0);
+    let position = Number(countRows[0]?.next_position ?? 0);
 
-    const url = `/uploads/${req.file.filename}`;
-    const [result] = await pool.query<ResultSetHeader>(
-      "INSERT INTO listing_photos (listing_id, url, position) VALUES (?, ?, ?)",
-      [id, url, position]
-    );
+    if (existing + uploaded.length > MAX_PHOTOS_PER_LISTING) {
+      discardFiles(uploaded);
+      res.status(400).json({
+        error: `une annonce ne peut pas depasser ${MAX_PHOTOS_PER_LISTING} photos (${existing} deja presente(s))`,
+      });
+      return;
+    }
 
-    res.status(201).json({ id: result.insertId, url, position });
+    const created = [];
+    for (const file of uploaded) {
+      const url = `/uploads/${file.filename}`;
+      const [result] = await pool.query<ResultSetHeader>(
+        "INSERT INTO listing_photos (listing_id, url, position) VALUES (?, ?, ?)",
+        [id, url, position]
+      );
+      created.push({
+        id: result.insertId,
+        url,
+        absoluteUrl: absoluteUrl(url),
+        position,
+      });
+      position += 1;
+    }
+
+    // Un seul fichier envoye : on garde la forme de reponse historique (objet),
+    // pour ne casser aucun client existant. Sinon, la liste des photos creees.
+    res.status(201).json(created.length === 1 ? created[0] : { photos: created });
   }
 );
+
+// DELETE /listings/:id/photos/:photoId — retire une photo d'une annonce.
+// Necessaire pour pouvoir corriger une annonce apres publication. Le fichier
+// est efface du disque et les positions restantes sont retassees pour rester
+// contigues (la premiere reste la vignette).
+listingsRouter.delete("/:id/photos/:photoId", requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  const photoId = Number(req.params.photoId);
+
+  if (!Number.isInteger(id) || !Number.isInteger(photoId)) {
+    res.status(400).json({ error: "id invalide" });
+    return;
+  }
+
+  const access = await loadEditableListing(
+    id,
+    req.session.userId,
+    res,
+    "supprimer une photo"
+  );
+  if (!access) return;
+
+  const [rows] = await pool.query<PhotoRow[]>(
+    "SELECT id, url, position FROM listing_photos WHERE id = ? AND listing_id = ?",
+    [photoId, id]
+  );
+  const photo = rows[0];
+
+  if (!photo) {
+    res.status(404).json({ error: "photo introuvable" });
+    return;
+  }
+
+  await pool.query("DELETE FROM listing_photos WHERE id = ?", [photoId]);
+  await pool.query(
+    "UPDATE listing_photos SET position = position - 1 WHERE listing_id = ? AND position > ?",
+    [id, photo.position]
+  );
+
+  // Le fichier n'est efface que s'il vit bien dans UPLOAD_DIR : une url
+  // externe (ou trafiquee) ne doit pas pouvoir faire supprimer un fichier
+  // arbitraire du serveur.
+  const filename = path.basename(photo.url);
+  const filePath = path.join(UPLOAD_DIR, filename);
+  if (photo.url.startsWith("/uploads/") && path.dirname(filePath) === path.resolve(UPLOAD_DIR)) {
+    fs.unlink(filePath, () => {});
+  }
+
+  res.status(204).send();
+});
+
+// PATCH /listings/:id/photos — reordonne le carrousel. Body : { photoIds: [...] }
+// dans l'ordre souhaite. Permet notamment de choisir la vignette (premiere
+// photo) sans avoir a tout re-televerser.
+listingsRouter.patch("/:id/photos", requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: "id invalide" });
+    return;
+  }
+
+  const { photoIds } = req.body ?? {};
+  if (
+    !Array.isArray(photoIds) ||
+    photoIds.length === 0 ||
+    !photoIds.every((value) => Number.isInteger(value))
+  ) {
+    res.status(400).json({ error: "photoIds doit etre un tableau d'identifiants" });
+    return;
+  }
+
+  const access = await loadEditableListing(
+    id,
+    req.session.userId,
+    res,
+    "reordonner les photos"
+  );
+  if (!access) return;
+
+  const [rows] = await pool.query<PhotoRow[]>(
+    "SELECT id, url, position FROM listing_photos WHERE listing_id = ?",
+    [id]
+  );
+
+  const known = new Set(rows.map((row) => row.id));
+  const unique = new Set(photoIds);
+
+  // On exige la liste complete : un ordre partiel laisserait des positions
+  // ambigues entre les photos citees et les autres.
+  if (unique.size !== photoIds.length || unique.size !== known.size ||
+      !photoIds.every((photoId: number) => known.has(photoId))) {
+    res.status(400).json({
+      error: "photoIds doit contenir exactement une fois chaque photo de l'annonce",
+    });
+    return;
+  }
+
+  for (const [index, photoId] of photoIds.entries()) {
+    await pool.query(
+      "UPDATE listing_photos SET position = ? WHERE id = ? AND listing_id = ?",
+      [index, photoId, id]
+    );
+  }
+
+  const [updated] = await pool.query<PhotoRow[]>(
+    "SELECT id, url, position FROM listing_photos WHERE listing_id = ? ORDER BY position ASC",
+    [id]
+  );
+
+  res.json({
+    photos: updated.map((p) => ({
+      id: p.id,
+      url: p.url,
+      absoluteUrl: absoluteUrl(p.url),
+      position: p.position,
+    })),
+  });
+});
 
 // POST /listings/ai/analyze — envoie une photo (multipart, champ "photo") a une
 // IA et renvoie une categorie, un etat et une description proposes, pour
@@ -880,7 +1146,9 @@ listingsRouter.post(
       if (!aiConfigured()) {
         res
           .status(503)
-          .json({ error: "analyse IA indisponible (ANTHROPIC_API_KEY non configuree)" });
+          .json({
+            error: "analyse IA indisponible (HUGGINGFACE_API_KEY non configuree)",
+          });
         return;
       }
       if (!mediaType) {

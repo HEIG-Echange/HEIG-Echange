@@ -20,11 +20,17 @@ const storage = multer.diskStorage({
   },
 });
 
+// Types MIME acceptes et taille maximale, publies tels quels par GET /config :
+// le frontend refuse alors les fichiers hors limites au moment ou l'utilisateur
+// les choisit, plutot que de laisser l'envoi echouer en 400 apres coup.
+export const ALLOWED_IMAGE_MIME_TYPES = Object.keys(ALLOWED_EXT);
+export const MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024;
+
 // Upload d'une seule image, plafonnee a 5 Mo. Rejette tout ce qui n'est pas
 // une image d'un format connu.
 export const uploadImage = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: MAX_PHOTO_SIZE_BYTES },
   fileFilter: (_req, file, cb) => {
     if (ALLOWED_EXT[file.mimetype]) {
       cb(null, true);

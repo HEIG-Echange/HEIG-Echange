@@ -1,0 +1,28 @@
+meta {
+  name: Get Listing QR
+  type: http
+  seq: 12
+}
+
+get {
+  url: {{baseUrl}}/listings/{{listingId}}/qr
+  body: none
+  auth: none
+}
+
+docs {
+  QR code (SVG) pointant vers la fiche publique de l'annonce.
+
+  Le domaine encode provient de la variable d'environnement PUBLIC_BASE_URL :
+  en local il vaut http://localhost:3000, en production il doit valoir le vrai
+  domaine, sinon les codes scannes sont inutilisables.
+
+  Accessible sans etre connecte. Renvoie 404 si l'annonce est supprimee ou si
+  son proprietaire est suspendu.
+}
+
+script:pre-request {
+  if (!bru.getVar("listingId")) {
+    bru.setVar("listingId", 1);
+  }
+}
