@@ -21,13 +21,6 @@
 --   8 Suppression profil                         -> users.deleted_at (soft delete)
 --   9 Roles & moderation                         -> users.role / is_blocked,
 --                                                    reports, moderation_logs
---  10 Favoris ("interesse")                      -> listing_interests
---  11 Groupes d'amis / annonces prioritaires     -> friends_groups,
---                                                    friends_group_members,
---                                                    priority_groups,
---                                                    listings.is_priority
---  12 Notifications                              -> notifications
---  13 Reglages admin (prompts IA)                -> app_settings
 -- ---------------------------------------------------------------------------
 SET NAMES utf8mb4;
 SET time_zone = '+00:00';
@@ -35,6 +28,10 @@ SET time_zone = '+00:00';
 -- ---------------------------------------------------------------------------
 -- users — comptes etudiants et administrateurs
 --
+-- L'authentification se fait via l'ecosysteme Microsoft de l'ecole : on ne
+-- stocke donc aucun mot de passe ici. Le CHECK sur le domaine est une seconde
+-- barriere ; la validation applicative reste la reference (elle gere aussi la
+-- casse, les alias, etc.).
 -- ---------------------------------------------------------------------------
 CREATE TABLE users (
   id             BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -79,44 +76,11 @@ CREATE TABLE categories (
   UNIQUE KEY uq_categories_slug (slug)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- friends_groups — un groupe d'amis, cree et possede par un utilisateur
-CREATE TABLE friends_groups (
-  id         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  name       VARCHAR(120)    NOT NULL,
-  owner_id   BIGINT UNSIGNED NOT NULL,
-  created_at TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP
-                              ON UPDATE CURRENT_TIMESTAMP,
-  deleted_at TIMESTAMP           NULL DEFAULT NULL,   -- soft delete, comme users/listings
-  PRIMARY KEY (id),
-  KEY idx_friends_groups_owner (owner_id),
-  CONSTRAINT fk_friends_groups_owner
-    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- friends_group_members — appartenance a un groupe d'amis
-CREATE TABLE friends_group_members (
-  id               BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  friends_group_id BIGINT UNSIGNED NOT NULL,
-  user_id          BIGINT UNSIGNED NOT NULL,
-  added_at         TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (id),
-  UNIQUE KEY uq_group_members_group_user (friends_group_id, user_id),
-  KEY idx_group_members_user (user_id),
-  CONSTRAINT fk_group_members_group
-    FOREIGN KEY (friends_group_id) REFERENCES friends_groups(id) ON DELETE CASCADE,
-  CONSTRAINT fk_group_members_user
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 -- ---------------------------------------------------------------------------
 -- listings — les annonces (req 1, 3, 6)
 --
 -- "condition" est un mot reserve SQL : la colonne s'appelle item_condition.
 -- L'index FULLTEXT alimente la recherche en temps reel (req 2).
---
--- is_priority / end_priority_at : fenetre pendant laquelle l'annonce n'est
--- visible que par le proprietaire, les admins et les membres des groupes
 -- ---------------------------------------------------------------------------
 CREATE TABLE listings (
   id             BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -127,8 +91,6 @@ CREATE TABLE listings (
   item_condition ENUM('neuf','tres_bon','bon','usage','a_reparer') NOT NULL, -- req 1 : etat
   status         ENUM('available','reserved','closed') NOT NULL DEFAULT 'available',
   location       VARCHAR(255)        NULL DEFAULT NULL,       -- lieu libre (texte)
-  is_priority    TINYINT(1)      NOT NULL DEFAULT 0,          -- reservee a des groupes d'amis
-  end_priority_at TIMESTAMP          NULL DEFAULT NULL,       -- fin de la restriction
   created_at     TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at     TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP
                                  ON UPDATE CURRENT_TIMESTAMP,
@@ -138,24 +100,11 @@ CREATE TABLE listings (
   KEY idx_listings_status (status),
   KEY idx_listings_category (category_id),
   KEY idx_listings_owner (owner_id),
-  KEY idx_listings_priority_window (is_priority, end_priority_at),
   FULLTEXT KEY ft_listings_search (title, description),   -- req 2 : recherche
   CONSTRAINT fk_listings_owner
     FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE,
   CONSTRAINT fk_listings_category
     FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- priority_groups — quels groupes d'amis voient une annonce restreinte
-CREATE TABLE priority_groups (
-  listing_id       BIGINT UNSIGNED NOT NULL,
-  friends_group_id BIGINT UNSIGNED NOT NULL,
-  PRIMARY KEY (listing_id, friends_group_id),
-  KEY idx_priority_groups_group (friends_group_id),
-  CONSTRAINT fk_priority_groups_listing
-    FOREIGN KEY (listing_id) REFERENCES listings(id) ON DELETE CASCADE,
-  CONSTRAINT fk_priority_groups_group
-    FOREIGN KEY (friends_group_id) REFERENCES friends_groups(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------------
@@ -237,7 +186,6 @@ CREATE TABLE reports (
   PRIMARY KEY (id),
   KEY idx_reports_status (status),
   KEY idx_reports_listing (listing_id),
-  KEY idx_reports_reporter (reporter_id),
   CONSTRAINT fk_reports_reporter
     FOREIGN KEY (reporter_id) REFERENCES users(id) ON DELETE SET NULL,
   CONSTRAINT fk_reports_listing

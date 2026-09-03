@@ -9,6 +9,7 @@ import {
   mountNav,
   mountViewToggle,
   mountAccountChip,
+  mountNotificationBell,
   renderEmailBanner,
   listingCardHtml,
   icon,
@@ -47,6 +48,7 @@ getConfig().then(({ publicBaseUrl }) => {
 });
 
 mountAccountChip(document.getElementById("account-chip"));
+mountNotificationBell(document.getElementById("notif-bell"));
 getCurrentUser().then((user) =>
   renderEmailBanner(user, document.getElementById("account-banner"))
 );

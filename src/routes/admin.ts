@@ -14,6 +14,7 @@ import {
   type AiSettingKey,
 } from "../aiSettings";
 import { aiConfigured } from "../ai";
+import { notify } from "../notifications";
 
 export const adminRouter = Router();
 adminRouter.use(requireAdmin);
@@ -105,9 +106,14 @@ adminRouter.patch("/reports/:id", async (req, res) => {
 
   interface ReportListingRow extends RowDataPacket {
     listing_id: number;
+    reporter_id: number | null;
+    listing_title: string | null;
   }
   const [reportRows] = await pool.query<ReportListingRow[]>(
-    "SELECT listing_id FROM reports WHERE id = ?",
+    `SELECT r.listing_id, r.reporter_id, l.title AS listing_title
+       FROM reports r
+       LEFT JOIN listings l ON l.id = r.listing_id
+      WHERE r.id = ?`,
     [id]
   );
   const report = reportRows[0];
@@ -131,6 +137,28 @@ adminRouter.patch("/reports/:id", async (req, res) => {
       JSON.stringify({ reportId: id, status, note: note ?? null }),
     ]
   );
+
+  // La personne qui a signale apprend ce qui a ete decide : sans retour, elle
+  // ne sait pas si son signalement a servi a quelque chose.
+  if (report.reporter_id) {
+    await notify({
+      userId: report.reporter_id,
+      type: "report_reviewed",
+      title:
+        status === "dismissed"
+          ? "Votre signalement a ete classe sans suite"
+          : "Votre signalement a ete traite",
+      body: [
+        report.listing_title ? `Annonce : ${report.listing_title}` : null,
+        note ?? null,
+      ]
+        .filter(Boolean)
+        .join("\n") || null,
+      link: `listing.html?id=${report.listing_id}`,
+      listingId: report.listing_id,
+      actorId: req.session.userId,
+    });
+  }
 
   res.status(204).send();
 });
@@ -165,6 +193,16 @@ adminRouter.post("/users/:id/block", async (req, res) => {
     [req.session.userId, id, JSON.stringify({ reason })]
   );
 
+  // Le compte bloque ne peut plus se connecter : la notification l'attend a la
+  // levee du blocage, avec le motif.
+  await notify({
+    userId: id,
+    type: "account_blocked",
+    title: "Votre compte a ete bloque",
+    body: `Motif : ${reason}`,
+    actorId: req.session.userId,
+  });
+
   res.status(204).send();
 });
 
@@ -198,7 +236,80 @@ adminRouter.post("/users/:id/unblock", async (req, res) => {
     [req.session.userId, id, reason ? JSON.stringify({ reason }) : null]
   );
 
+  await notify({
+    userId: id,
+    type: "account_unblocked",
+    title: "Votre compte a ete debloque",
+    body: reason ?? null,
+    actorId: req.session.userId,
+  });
+
   res.status(204).send();
+});
+
+interface AdminUserRow extends RowDataPacket {
+  id: number;
+  email: string;
+  display_name: string;
+  role: "user" | "admin";
+  is_blocked: number | boolean;
+  blocked_reason: string | null;
+  email_verified_at: string | null;
+  created_at: string;
+  deleted_at: string | null;
+  listings_count: number;
+  open_reports: number;
+}
+
+// GET /admin/users — annuaire de moderation. ?q= filtre sur le nom ou l'email,
+// ?blocked=true ne garde que les comptes bloques. C'est ce que consomme la page
+// /admin.html pour proposer "bloquer / debloquer" sans avoir a deviner un id.
+adminRouter.get("/users", async (req, res) => {
+  const { q, blocked } = req.query;
+
+  const where: string[] = [];
+  const params: (string | number)[] = [];
+
+  if (typeof q === "string" && q.trim()) {
+    where.push("(u.display_name LIKE ? OR u.email LIKE ?)");
+    const like = `%${q.trim()}%`;
+    params.push(like, like);
+  }
+
+  if (blocked === "true") {
+    where.push("u.is_blocked = TRUE");
+  }
+
+  const [rows] = await pool.query<AdminUserRow[]>(
+    `SELECT u.id, u.email, u.display_name, u.role, u.is_blocked, u.blocked_reason,
+            u.email_verified_at, u.created_at, u.deleted_at,
+            (SELECT COUNT(*) FROM listings l
+              WHERE l.owner_id = u.id AND l.deleted_at IS NULL) AS listings_count,
+            (SELECT COUNT(*) FROM reports r
+               JOIN listings l2 ON l2.id = r.listing_id
+              WHERE l2.owner_id = u.id AND r.status = 'open') AS open_reports
+       FROM users u
+       ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
+      ORDER BY u.is_blocked DESC, u.created_at DESC
+      LIMIT 200`,
+    params
+  );
+
+  res.json(
+    rows.map((u) => ({
+      id: u.id,
+      email: u.email,
+      displayName: u.display_name,
+      role: u.role,
+      isBlocked: Boolean(u.is_blocked),
+      blockedReason: u.blocked_reason,
+      emailStatus: accountEmailStatus(u.email_verified_at),
+      createdAt: u.created_at,
+      deletedAt: u.deleted_at,
+      listingsCount: u.listings_count,
+      openReports: u.open_reports,
+    }))
+  );
 });
 
 interface LogRow extends RowDataPacket {
@@ -206,10 +317,24 @@ interface LogRow extends RowDataPacket {
   actor_id: number | null;
   actor_name: string | null;
   action: string;
-  target_type: "user" | "listing";
-  target_id: number;
-  details: string | null;
+  // La colonne est un JSON MariaDB : selon la facon dont la table a ete creee
+  // (type JSON, ou LONGTEXT + CHECK json_valid comme dans certains exports),
+  // le driver renvoie soit la chaine brute, soit l'objet deja decode.
+  details: string | Record<string, unknown> | null;
   created_at: string;
+}
+
+/** Normalise details en objet, quelle que soit la forme rendue par le driver. */
+function parseLogDetails(details: LogRow["details"]): unknown {
+  if (details === null || details === undefined) return null;
+  if (typeof details !== "string") return details;
+  try {
+    return JSON.parse(details);
+  } catch {
+    // Ligne ecrite a la main ou tronquee : on rend le texte plutot que de
+    // faire echouer toute la page d'historique.
+    return details;
+  }
 }
 
 // GET /admin/moderation-logs — historique des actions de moderation filtrable par cible 
@@ -256,7 +381,7 @@ adminRouter.get("/moderation-logs", async (req, res) => {
       action: r.action,
       targetType: r.target_type,
       targetId: r.target_id,
-      details: r.details ? JSON.parse(r.details) : null,
+      details: parseLogDetails(r.details),
       createdAt: r.created_at,
     }))
   );

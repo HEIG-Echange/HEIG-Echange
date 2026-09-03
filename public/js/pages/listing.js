@@ -13,13 +13,21 @@ import {
   categoryBadgeClass,
   escapeHtml,
 } from "../api.js";
-import { mountNav, mountAccountChip, attachShareMenu, icon } from "../ui.js";
+import {
+  mountNav,
+  mountAccountChip,
+  mountNotificationBell,
+  attachShareMenu,
+  icon,
+} from "../ui.js";
 
 mountNav("home");
 mountAccountChip(document.getElementById("account-chip"));
+mountNotificationBell(document.getElementById("notif-bell"));
 
 const contentEl = document.getElementById("content");
 const shareBtn = document.getElementById("share-btn");
+const favBtn = document.getElementById("fav-btn");
 const id = new URLSearchParams(window.location.search).get("id");
 
 if (!id) {
@@ -110,6 +118,125 @@ function wireGallery(photoCount) {
   }
 }
 
+
+// ---------------------------------------------------------------------------
+// Favori ("je suis interesse") — bouton etoile de l'en-tete
+//
+// L'API expose l'etat par annonce (GET/POST/DELETE /listings/:id/interest).
+// Un visiteur anonyme voit l'etoile mais elle l'envoie sur la page de
+// connexion : on ne peut pas se souvenir d'un favori sans compte.
+// ---------------------------------------------------------------------------
+
+// Repeint entierement le bouton (icone, libelle, couleur). Elle est aussi ce
+// qui le fait apparaitre : la classe posee ici ne contient pas "hidden", a la
+// difference de celle du HTML.
+function paintFavButton(active) {
+  favBtn.innerHTML = icon(active ? "starFilled" : "star");
+  favBtn.setAttribute("aria-pressed", String(active));
+  favBtn.title = active ? "Retirer des favoris" : "Marquer comme intéressé";
+  favBtn.setAttribute("aria-label", favBtn.title);
+  favBtn.className = `w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
+    active
+      ? "bg-amber-100 text-amber-600 hover:bg-amber-200"
+      : "bg-secondarybg text-mutedfg hover:text-appfg"
+  }`;
+}
+
+async function mountFavButton(listing, user, isOwner) {
+  // Son propre objet : l'etoile n'aurait pas de sens (l'API la refuse aussi).
+  // Le bouton reste cache : paintFavButton est la seule chose qui l'affiche.
+  if (isOwner) return;
+
+  if (!user) {
+    paintFavButton(false);
+    favBtn.addEventListener("click", () => {
+      window.location.href = `login.html?next=${encodeURIComponent(`listing.html?id=${listing.id}`)}`;
+    });
+    return;
+  }
+
+  let active = false;
+  try {
+    const state = await api.get(`/listings/${listing.id}/interest`);
+    active = Boolean(state?.interested);
+  } catch {
+    // Etat inconnu : on part de "pas en favori", le clic corrigera.
+  }
+  paintFavButton(active);
+
+  let busy = false;
+  favBtn.addEventListener("click", async () => {
+    if (busy) return;
+    busy = true;
+    // Retour visuel immediat, revert si l'API refuse.
+    const next = !active;
+    paintFavButton(next);
+    try {
+      if (next) {
+        await api.post(`/listings/${listing.id}/interest`);
+      } else {
+        await api.del(`/listings/${listing.id}/interest`);
+      }
+      active = next;
+    } catch (err) {
+      paintFavButton(active);
+      alert(err.message);
+    } finally {
+      busy = false;
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Signalement d'une annonce (POST /reports)
+// ---------------------------------------------------------------------------
+
+function reportBlockHtml(user, isOwner) {
+  if (isOwner) return "";
+  if (!user) {
+    return `<p class="text-[11px] text-mutedfg text-center pt-2">
+              <a href="login.html" class="underline hover:text-appfg">Connectez-vous</a> pour signaler cette annonce.
+            </p>`;
+  }
+  return `
+    <button id="report-btn" type="button"
+            class="flex items-center justify-center gap-2 w-full text-sm font-bold text-mutedfg hover:text-red-600 rounded-xl py-2.5 transition-colors">
+      ${icon("flag")} Signaler cette annonce
+    </button>
+    <p id="report-feedback" class="text-[11px] text-center"></p>`;
+}
+
+function wireReportButton(listing) {
+  const btn = document.getElementById("report-btn");
+  if (!btn) return;
+  const feedback = document.getElementById("report-feedback");
+
+  btn.addEventListener("click", async () => {
+    const reason = prompt(
+      "Pourquoi signalez-vous cette annonce ?" +
+        "\n(contenu inapproprié, arnaque, objet interdit…)"
+    );
+    if (reason === null) return;
+    if (!reason.trim()) {
+      feedback.className = "text-[11px] text-center text-red-600";
+      feedback.textContent = "Un motif est nécessaire pour signaler une annonce.";
+      return;
+    }
+
+    btn.disabled = true;
+    try {
+      await api.post("/reports", { listingId: listing.id, reason: reason.trim() });
+      feedback.className = "text-[11px] text-center text-emerald-700";
+      feedback.textContent = "Signalement envoyé, la modération va l'examiner.";
+      btn.classList.add("hidden");
+    } catch (err) {
+      feedback.className = "text-[11px] text-center text-red-600";
+      feedback.textContent = err.message;
+      btn.disabled = false;
+    }
+  });
+}
+
 async function render() {
   let listing;
   try {
@@ -146,7 +273,7 @@ async function render() {
 
         <div class="pt-3 border-t border-appfg/10">
           <a href="u.html?id=${listing.ownerId}" class="flex items-center gap-2.5 min-w-0 hover:opacity-80 transition-opacity">
-            <span class="w-10 h-10 rounded-full bg-brand text-white text-sm font-bold flex items-center justify-center flex-shrink-0">${escapeHtml(initials(listing.ownerName))}</span>
+            <span class="w-10 h-10 rounded-full bg-brand text-white text-sm font-bold flex items-center justify-center flex-shrink-0">${escapeHtml(listing.ownerInitials ?? initials(listing.ownerName))}</span>
             <span class="min-w-0">
               <span class="block text-xs text-mutedfg">Proposé par</span>
               <span class="block text-sm font-bold truncate">${escapeHtml(listing.ownerName ?? "un·e étudiant·e")}</span>
@@ -218,11 +345,18 @@ async function render() {
   } else {
     // Visiteur non connecte : les coordonnees ne sont pas exposees.
     actionZone.innerHTML = `
-      <a href="login.html"
+      <a href="login.html?next=${encodeURIComponent(`listing.html?id=${listing.id}`)}"
          class="block text-center w-full bg-brand hover:bg-brand-dark text-white font-bold rounded-xl py-3 transition-colors">
         Se connecter pour contacter le donneur
       </a>
       <p class="text-[11px] text-mutedfg text-center">Les coordonnées ne sont visibles que par les membres connectés.</p>
     `;
   }
+
+  // Favori et signalement : deux actions qui ne concernent pas le
+  // proprietaire, et qui renvoient vers la connexion pour un visiteur anonyme.
+  await mountFavButton(listing, user, isOwner);
+
+  actionZone.insertAdjacentHTML("beforeend", reportBlockHtml(user, isOwner));
+  wireReportButton(listing);
 }
