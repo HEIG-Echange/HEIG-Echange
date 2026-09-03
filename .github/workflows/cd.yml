@@ -147,6 +147,7 @@ jobs:
     with:
       environment: deva
       deploy_path: /home/heigdeploy/heig/deva-pdg
+      image: ${{ needs.publish-image.outputs.image }}
     secrets: inherit
 
   devb:
@@ -158,6 +159,7 @@ jobs:
     with:
       environment: devb
       deploy_path: /home/heigdeploy/heig/devb-pdg
+      image: ${{ needs.publish-image.outputs.image }}
     secrets: inherit
 
   devc:
@@ -169,6 +171,7 @@ jobs:
     with:
       environment: devc
       deploy_path: /home/heigdeploy/heig/devc-pdg
+      image: ${{ needs.publish-image.outputs.image }}
     secrets: inherit
   ## / Fin: environnement de dev en CD.
 
@@ -183,6 +186,7 @@ jobs:
     with:
       environment: staging
       deploy_path: /home/heigdeploy/heig/staging-pdg
+      image: ${{ needs.publish-image.outputs.image }}
     secrets: inherit
 
   production:
@@ -194,5 +198,6 @@ jobs:
     with:
       environment: production
       deploy_path: /home/heigdeploy/heig/prod-pdg
+      image: ${{ needs.publish-image.outputs.image }}
     secrets: inherit
   ## /
