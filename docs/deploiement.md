@@ -25,18 +25,31 @@ niveaux se combinent :
 - **Secrets de repository** : partagés par staging et production. C'est le bon
   niveau tant que les deux environnements sont sur la **même machine**.
 - **Secrets d'environnement** (`Settings > Environments > staging|production`) :
-  propres à un environnement, et **prioritaires** sur un secret de repository de
-  même nom (car le job `deploy` déclare `environment:`).
+  pour chaque environnement. (Prioritaires sur clefs-valeurs des secrets de repository si même nom).
 
-### Secrets de repository (partagés)
+### Secrets de repository (partagés entre environnements)
+
+Initialement, la machine serveur était hébergée dans un appartement (Raspberry Pi). Une règle de Firewall était ouverte. Pour des soucis de sécurité, les valeurs qui permettraient d identifier l IP, le port, le user ont été mis en secret.
 
 | Secret | Requis | Défaut | Rôle |
 |---|---|---|---|
 | `DEPLOY_HOST` | oui | — | nom d'hôte ou IP de la machine |
 | `DEPLOY_USER` | oui | — | utilisateur SSH, membre du groupe `docker` |
 | `DEPLOY_PORT` | non | `22` | port SSH |
-| `DEPLOY_SSH_PRIVATE_KEY` | oui | — | clé privée de déploiement, **sans passphrase** |
+| `DEPLOY_SSH_PRIVATE_KEY` | oui | — | clé privée de déploiement **sans passphrase** (sinon pas automatisable dans le pipeline). à générer puis à attribuer à Github. Ajouter la clef publique dans le fichier `~/.ssh/authorized_keys` du serveur cible. |
 | `DEPLOY_SSH_KNOWN_HOSTS` | oui | — | clé publique de l'hôte, pour vérifier la machine |
+
+Exemple de valeur pour `DEPLOY_SSH_KNOWN_HOSTS` (copier la valeur dans une variable d'environnement GitHub). Pour connaître la valeur à mettre dans la variable d environnement, vous pouvez 1 vous connecter en ssh depuis une machine en 4G (pour simuler la CD github qui passe par internet) vers la machine cible, accepter le fingerprinting, puis récupérer les lignes ajoutées dans le fichier `~/.ssh/known_hosts` après cette connexion, qui sont en lien avec la machine cible.
+
+Exemple:
+
+```bash
+vps123808.serveur-vps.net ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEIHw5CuM3zAHpBLUhfrYJDb37GsTvfi8v2o1H4mLQ6B
+vps123808.serveur-vps.net ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDnMmUkOYstWJQP6hOYbZWvvOkiiHVSsd1xgaW9Ev3baRg+/BvTaIWcxqvF5DdUlEUPOWKsIimedJw/5d8oS5sVuFUnqjoYMwlentRCtRHEYjzKQaWeGsXNsZhQjrhf75Km4DdaWmB+c4GFMiP9/kZZJJUlLzkA9xysm99cny2NAua2itWG7fa6rwNRoMzI9CJlZcstXCktQ7yKttsE/ANcGOPKiJe6TIg97x4xdcNqfBxbDvl62o2PHHQnlYKSD8CbrmB6DiKVz5Hq3qAWRHsCkONDUIwCJbDcVmZQlq/TxmKyK++b09VvV8Ww+b71JLFB5wc6BewbhJbODYJ3vrmtSiKpBcSejeyEKMhA6k2CKRJYaXysQyhXDbSdleHokS3HqwxM6pKz9Z0z19yhfTkOg6VdIfDknw4D/No2UBkcAs/pVbK02aGe/tYqx24/5G/dFYRixKTu87LDUIuvHzOr105Qw7rVq6O4onxZ/rhK4dFdOSXoeSDJvROFzK1J92U=
+vps123808.serveur-vps.net ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBKBdQdGE2gMlnwwJ2b8bQ1iivbHPqqJps6rHq4hDvT4gWxUXCafsgZgwmp2sQRfsqE7gUV+mQPOYgsMFipJJcm0=
+```
+
+
 
 ### Secret d'environnement (une valeur par environnement)
 
@@ -169,26 +182,24 @@ jamais publiée sur la machine hôte (pas de section `ports` sur le service
 
 ### Accès à phpMyAdmin depuis une autre machine
 
-Le service `phpmyadmin` (profil `tools`, à lancer avec
-`docker compose --profile tools up -d`) est publié sur `0.0.0.0` par défaut,
-donc joignable depuis une autre machine du réseau à
-`http://<ip-de-la-machine>:${PHPMYADMIN_PORT}`. C'est volontaire pour permettre
-l'administration à distance, mais phpMyAdmin n'est pas servi en HTTPS ici :
-ne l'exposer que sur un réseau de confiance (LAN privé, VPN), jamais
-directement sur Internet. Pour revenir à un accès local uniquement, définir
-`PHPMYADMIN_BIND_ADDRESS=127.0.0.1` dans le `.env` concerné.
+Le service `phpmyadmin` (profil `tools`, à lancer avec `docker compose --profile tools up -d`) est publié sur `0.0.0.0` par défaut (i.e. joignable depuis une autre machine du réseau), pour nous permettre d administrer à distance la BDD.
+
+En production, pour plus de sécurité, on limiterait par exemple l accès depuis la machine serveur.
+
+Pour revenir à un accès local uniquement, définir`PHPMYADMIN_BIND_ADDRESS=127.0.0.1` dans le `.env` concerné.
 
 
 
 
 ## Déploiement manuel d'urgence
 
-Le script distant est utilisable à la main, sans pipeline, depuis une copie des
-sources déjà présente dans le dossier :
+Le script distant est utilisable à la main, sans pipeline, depuis une copie des sources déjà présente dans le dossier :
 
 ```bash
 cd /home/heigdeploy/heig/prod-pdg && IMAGE_TAG=production docker compose up --build -d --wait
 ```
+
+
 
 ## Retour arrière
 
