@@ -1,8 +1,9 @@
 # Déploiement
 
-Le déploiement se fait par SSH sur une machine distante. Le pipeline envoie les
-sources du commit, puis lance `docker compose up --build -d` dans le dossier de
-l'environnement visé. La machine construit donc l'image elle-même.
+
+Le déploiement se fait par SSH sur une machine distante. Le pipeline envoie les sources du commit, puis lance `docker compose up --build -d` dans le dossier de l'environnement visé. La machine construit l'image elle-même.
+
+
 
 ## Vue d'ensemble
 
@@ -152,12 +153,10 @@ chown heigdeploy:heigdeploy /home/heigdeploy/heig/_backups
    Ce n'est pas gênant pour un build Docker, qui ne lit que ce que le
    `Dockerfile` copie explicitement, mais en cas de doute il suffit de vider le
    dossier en gardant le `.env` et de relancer le workflow.
-4. `docker compose up --build -d --remove-orphans --wait`. Le `--wait` attend le
-   healthcheck du conteneur : un démarrage cassé fait échouer le pipeline au
-   lieu de passer inaperçu. En cas d'échec, `docker compose ps` et les 100
-   dernières lignes de logs sont affichées dans le run.
-5. `docker image prune` des images de plus d'une semaine, pour que les builds
-   successifs ne remplissent pas le disque.
+4. sauvegarde compressée de la DB MariaDB dans `DB_BACKUP_PATH`, puis 
+   `docker compose up --no-build -d --remove-orphans --wait`.
+   Le `--wait` attend le healthcheck du conteneur : un démarrage cassé fait échouer le pipeline (visibilité en cas de soucis).
+5. `docker image prune` des images de plus d'une semaine, pour que les builds ne remplissent pas le disque.
 
 Le commit déployé est tracé dans le fichier `.release` du dossier, et dans les
 labels OCI de l'image (`org.opencontainers.image.revision`) :
@@ -176,6 +175,7 @@ Dans le `.env` de **chaque** clone :
 APP_PORT=3001                          # doit différer entre les instances
 PHPMYADMIN_PORT=8083                   # idem, si le profil "tools" est utilisé
 COMPOSE_PROJECT_NAME=heig-echange-a     # doit différer entre les instances
+DB_BACKUP_PATH=/home/heigdeploy/heig/_backups
 ```
 
 `COMPOSE_PROJECT_NAME` est le point le plus facile à oublier : sans lui,
@@ -200,24 +200,4 @@ En production, pour plus de sécurité, on limiterait par exemple l accès depui
 
 Pour revenir à un accès local uniquement, définir`PHPMYADMIN_BIND_ADDRESS=127.0.0.1` dans le `.env` concerné.
 
-
-
-
-## Déploiement manuel d'urgence
-
-Le script distant est utilisable à la main, sans pipeline, depuis une copie des sources déjà présente dans le dossier :
-
-```bash
-cd /home/heigdeploy/heig/prod-pdg && IMAGE_TAG=production docker compose up --build -d --wait
-```
-
-
-
-## Retour arrière
-
-Il n'y a pas encore de rollback automatique. Pour revenir en arrière, relancer
-le workflow `CD` depuis le commit visé (onglet Actions → CD → Run workflow, en
-choisissant la branche ou le tag). C'est la principale limite du modèle actuel :
-comme l'image est construite sur la machine, il n'existe pas d'artefact
-versionné à réinstaller directement.
 
