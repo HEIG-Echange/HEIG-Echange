@@ -224,6 +224,43 @@ CREATE TABLE messages (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------------
+-- notifications — centre de notifications in-app (req 12)
+--
+-- Une ligne = un evenement destine a UN utilisateur (user_id). Le texte est
+-- fige a l'ecriture (title/body) plutot que reconstruit a l'affichage : une
+-- notification doit rester lisible meme si l'annonce a ete supprimee depuis.
+-- listing_id / actor_id ne servent qu'aux liens et sont donc ON DELETE SET
+-- NULL — perdre le lien ne doit jamais faire disparaitre la notification.
+--
+-- type est une chaine libre cote base (pas un ENUM) : ajouter un evenement ne
+-- doit pas demander une migration. Valeurs produites aujourd'hui par
+-- src/notifications.ts : listing_interest, listing_removed, report_created,
+-- report_reviewed, account_blocked, account_unblocked.
+-- ---------------------------------------------------------------------------
+CREATE TABLE notifications (
+  id         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id    BIGINT UNSIGNED NOT NULL,               -- destinataire
+  type       VARCHAR(60)     NOT NULL,
+  title      VARCHAR(160)    NOT NULL,
+  body       TEXT                NULL DEFAULT NULL,
+  link       VARCHAR(512)        NULL DEFAULT NULL,  -- page a ouvrir au clic
+  listing_id BIGINT UNSIGNED     NULL DEFAULT NULL,
+  actor_id   BIGINT UNSIGNED     NULL DEFAULT NULL,  -- qui a declenche l'evenement
+  read_at    TIMESTAMP           NULL DEFAULT NULL,
+  created_at TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  -- Requete de reference : "mes notifications, les non lues d'abord".
+  KEY idx_notifications_user (user_id, read_at, created_at),
+  KEY idx_notifications_listing (listing_id),
+  CONSTRAINT fk_notifications_user
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_notifications_listing
+    FOREIGN KEY (listing_id) REFERENCES listings(id) ON DELETE SET NULL,
+  CONSTRAINT fk_notifications_actor
+    FOREIGN KEY (actor_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------------
 -- reports — signalement de contenu inapproprie (alimente la moderation, req 9)
 -- ---------------------------------------------------------------------------
 CREATE TABLE reports (

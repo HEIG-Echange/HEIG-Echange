@@ -6,6 +6,10 @@
 // annonce, un admin a retire son annonce ou bloque son compte, son
 // signalement a ete traite...
 //
+// Regle : notifier n'est jamais critique. Une notification qui ne part pas ne
+// doit pas faire echouer l'action metier qui l'a declenchee (le meme choix que
+// pour l'envoi d'email dans src/mail.ts) — on logge et on continue.
+//
 // Le texte est fige au moment de l'ecriture plutot que reconstruit a
 // l'affichage : une notification doit rester lisible meme si l'annonce a
 // disparu depuis.
