@@ -33,3 +33,35 @@ jobs:
       - name: Build de l'image (si le Dockerfile existe)
         if: hashFiles('Dockerfile') != ''
         run: docker build -t heig-echange-test .
+
+  bruno:
+    # Cette suite est exactement celle que les developpeurs lancent avec
+    # `npm run test:bruno` apres avoir demarre Compose en mode developpement.
+    # Elle produit un rapport, mais ses echecs n'empechent ni CI ni CD.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Demarrer l'API de test avec la configuration Bruno locale
+        # run ...
+        # docker compose -f compose.yaml up --build -d --wait
+        # docker compose -f compose.yaml -f compose.dev.yaml up --build -d --wait
+        run: |
+          cp .env.example .env
+          docker compose -f compose.yaml -f compose.dev.yaml up --build -d --wait
+      - name: Executer la suite Bruno (non bloquant)
+        id: bruno
+        continue-on-error: true
+        run: npm run test:bruno
+      - name: Publier le rapport Bruno
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bruno-report-${{ github.run_id }}
+          path: bruno-report.xml
+          if-no-files-found: warn
+      - name: Arreter les services de test
+        if: always()
+        run: docker compose -f compose.yaml -f compose.dev.yaml down -v

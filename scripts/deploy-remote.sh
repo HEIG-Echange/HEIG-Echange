@@ -13,6 +13,7 @@
 #   RELEASE_SHA   commit deploye
 #   ARCHIVE       chemin de l'archive des sources deja envoyee sur la machine
 #   APP_VERSION   version applicative (package.json), optionnelle
+#   APP_IMAGE     reference GHCR immuable de l'application
 # ---------------------------------------------------------------------------
 set -euo pipefail
 
@@ -21,6 +22,7 @@ set -euo pipefail
 : "${RELEASE_SHA:?RELEASE_SHA est requis}"
 : "${ARCHIVE:?ARCHIVE est requis}"
 APP_VERSION="${APP_VERSION:-0.0.0}"
+: "${APP_IMAGE:?APP_IMAGE est requis}"
 
 # L'archive est supprimee quoi qu'il arrive, y compris en cas d'echec.
 trap 'rm -f "$ARCHIVE"' EXIT
@@ -43,6 +45,12 @@ if [ ! -f .env ]; then
   exit 1
 fi
 
+if ! grep -Eq '^[[:space:]]*DB_BACKUP_PATH=.+' .env; then
+  echo "erreur: DB_BACKUP_PATH manquant dans $DEPLOY_PATH/.env" >&2
+  echo "        Voir docs/deploiement.md pour la preparation des sauvegardes." >&2
+  exit 1
+fi
+
 if ! docker compose version >/dev/null 2>&1; then
   echo "erreur: docker compose est indisponible pour l'utilisateur $(id -un)." >&2
   echo "        L'utilisateur doit appartenir au groupe docker." >&2
@@ -53,6 +61,13 @@ echo "==> Mise a jour des sources vers ${RELEASE_SHA}"
 tar -xzf "$ARCHIVE" -C "$DEPLOY_PATH"
 printf '%s\n' "$RELEASE_SHA" > .release
 
+# Le dump est fait avant l'arret de Compose afin de sauvegarder l'etat qui est
+# en production. db-backup.sh lit DB_BACKUP_PATH depuis le .env de
+# la machine et fabrique db_<environnement>_<date>_<heure>.sql.gz.
+echo "==> Sauvegarde de la base (${DEPLOY_ENV})"
+DEPLOY_ENV="$DEPLOY_ENV" ./scripts/db-backup.sh
+
+
 # Reinjecte dans compose : tag d'image propre a l'environnement et
 # tracabilite du commit dans les labels OCI de l'image construite.
 export IMAGE_TAG="$DEPLOY_ENV"
@@ -60,15 +75,22 @@ export VERSION="$APP_VERSION"
 export REVISION="$RELEASE_SHA"
 export CREATED
 CREATED="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+export APP_IMAGE
+
+echo "==> Recuperation de l'image ${APP_IMAGE}"
+docker compose pull app
 
 echo "==> docker compose down (${DEPLOY_ENV})"
 docker compose down
 
 
-echo "==> docker compose up --profile tools --build -d (${DEPLOY_ENV})"
+# echo "==> docker compose up --profile tools --build -d (${DEPLOY_ENV})"
+echo "==> docker compose up --profile tools --no-build -d (${DEPLOY_ENV})"
+
 # --wait fait echouer la commande si le healthcheck du conteneur ne passe pas :
 # un demarrage casse remonte en echec de pipeline au lieu de passer inapercu.
-if ! docker compose --profile tools up --build -d --remove-orphans --wait --wait-timeout 300; then
+# if ! docker compose --profile tools up --build -d --remove-orphans --wait --wait-timeout 300; then
+if ! docker compose --profile tools up --no-build -d --remove-orphans --wait --wait-timeout 300; then
   echo "erreur: les services ne sont pas devenus sains." >&2
   docker compose ps || true
   docker compose logs --tail=100 || true
