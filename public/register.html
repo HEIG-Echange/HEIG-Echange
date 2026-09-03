@@ -3,63 +3,81 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Échange — Inscription</title>
+<title>Échange — Créer un compte</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
-<script>
-  tailwind.config = {
-    theme: {
-      extend: {
-        colors: {
-          brand: { DEFAULT: '#c8102e', dark: '#a30d25', light: '#f9e4e7' },
-          appbg: '#f5f4f0', appfg: '#1a1816',
-          secondarybg: '#f0ede8', mutedbg: '#e8e5e0', mutedfg: '#7a7670',
-        },
-        fontFamily: { sans: ['"Plus Jakarta Sans"', '-apple-system', 'sans-serif'] },
-      },
-    },
-  }
-</script>
+<script src="js/tailwind-setup.js"></script>
 <link rel="stylesheet" href="css/app.css" />
-<style>body { font-family: 'Plus Jakarta Sans', sans-serif; }</style>
 </head>
-<body class="bg-mutedbg text-appfg antialiased">
+<body class="text-appfg antialiased">
 
-<div class="app-shell justify-center">
-  <div class="px-6 py-10">
-    <div class="text-center mb-8">
-      <p class="text-xs text-mutedfg font-semibold">HEIG-VD</p>
-      <h1 class="text-3xl font-extrabold text-brand -mt-0.5">Échange</h1>
+<div class="min-h-screen lg:grid lg:grid-cols-2">
+
+  <aside class="hidden lg:flex flex-col justify-between bg-brand text-white p-12">
+    <div>
+      <span class="inline-flex w-12 h-12 rounded-2xl bg-white/15 text-xl font-extrabold items-center justify-center">É</span>
+      <p class="text-sm font-semibold opacity-80 mt-8">HEIG-VD</p>
+      <h1 class="text-4xl font-extrabold leading-tight mt-1">Échange</h1>
+      <p class="text-lg opacity-90 mt-6 max-w-md">
+        Réservé aux étudiant·e·s de la HEIG-VD et de la HES-SO. Une adresse
+        d'école confirmée suffit — aucun mot de passe de l'école n'est stocké.
+      </p>
     </div>
-
-    <form id="register-form" class="space-y-4">
-      <div id="error-box" class="hidden bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-3 py-2"></div>
-      <div>
-        <label class="block text-xs font-bold uppercase tracking-wide mb-1.5">Nom affiché</label>
-        <input id="name-input" type="text" required placeholder="Ex: Martin Dupont"
-               class="w-full bg-white border border-appfg/15 rounded-xl px-3.5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30" />
-      </div>
-      <div>
-        <label class="block text-xs font-bold uppercase tracking-wide mb-1.5">Email HEIG-VD / HES-SO</label>
-        <input id="email-input" type="email" required placeholder="prenom.nom@heig-vd.ch"
-               class="w-full bg-white border border-appfg/15 rounded-xl px-3.5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30" />
-      </div>
-      <div>
-        <label class="block text-xs font-bold uppercase tracking-wide mb-1.5">Mot de passe</label>
-        <input id="password-input" type="password" required minlength="8" placeholder="8 caractères minimum"
-               class="w-full bg-white border border-appfg/15 rounded-xl px-3.5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30" />
-      </div>
-      <button type="submit" class="w-full bg-brand hover:bg-brand-dark text-white font-bold rounded-xl py-3.5 transition-colors">
-        Créer mon compte
-      </button>
-    </form>
-
-    <p class="text-center text-sm text-mutedfg mt-6">
-      Déjà un compte ? <a href="login.html" class="text-brand font-bold">Se connecter</a>
+    <p class="text-sm opacity-90 max-w-md">
+      Votre adresse est reconfirmée tous les 6 mois : c'est ce qui garantit que
+      la plateforme reste entre étudiant·e·s.
     </p>
-  </div>
+  </aside>
+
+  <main class="flex items-center justify-center px-4 py-10 bg-mutedbg">
+    <div class="w-full max-w-md">
+      <div class="text-center mb-6 lg:text-left">
+        <span class="inline-flex lg:hidden w-12 h-12 rounded-2xl bg-brand text-white text-xl font-extrabold items-center justify-center">É</span>
+        <h2 class="text-2xl font-extrabold mt-3">Créer un compte</h2>
+        <p class="text-sm text-mutedfg mt-1">Avec une adresse @heig-vd.ch ou @hes-so.ch.</p>
+      </div>
+
+      <form id="register-form" class="bg-white border border-appfg/10 rounded-2xl p-5 space-y-4 shadow-sm">
+        <div id="error-box" class="hidden bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-3 py-2.5"></div>
+
+        <div>
+          <label for="name-input" class="block text-xs font-bold uppercase tracking-wide mb-1.5">Nom affiché</label>
+          <input id="name-input" type="text" required autocomplete="name" placeholder="Martin Dupont"
+                 class="w-full bg-appbg border border-appfg/15 rounded-xl px-3.5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30" />
+        </div>
+
+        <div>
+          <label for="email-input" class="block text-xs font-bold uppercase tracking-wide mb-1.5">Adresse email</label>
+          <input id="email-input" type="email" required autocomplete="email" placeholder="prenom.nom@heig-vd.ch"
+                 class="w-full bg-appbg border border-appfg/15 rounded-xl px-3.5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30" />
+        </div>
+
+        <div>
+          <label for="password-input" class="block text-xs font-bold uppercase tracking-wide mb-1.5">Mot de passe</label>
+          <input id="password-input" type="password" required minlength="8" autocomplete="new-password"
+                 class="w-full bg-appbg border border-appfg/15 rounded-xl px-3.5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30" />
+          <p class="text-[11px] text-mutedfg mt-1">8 caractères minimum.</p>
+        </div>
+
+        <p class="text-[11px] text-mutedfg bg-appbg border border-appfg/10 rounded-xl px-3 py-2.5">
+          Un code de confirmation vous sera envoyé par email. Tant qu'il n'est
+          pas saisi, le compte n'est pas actif.
+        </p>
+
+        <button type="submit"
+                class="w-full bg-brand hover:bg-brand-dark text-white font-bold rounded-xl py-3.5 transition-colors">
+          Créer mon compte
+        </button>
+      </form>
+
+      <p class="text-center text-sm text-mutedfg mt-5">
+        Déjà inscrit·e ?
+        <a href="login.html" class="font-bold text-brand hover:underline">Se connecter</a>
+      </p>
+    </div>
+  </main>
 </div>
 
 <script type="module" src="js/pages/register.js"></script>

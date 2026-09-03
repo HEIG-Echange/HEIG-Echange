@@ -42,6 +42,9 @@ CREATE TABLE users (
   email_verified_at TIMESTAMP        NULL DEFAULT NULL,        -- confirmation par code recu par email
   verification_code VARCHAR(8)       NULL DEFAULT NULL,
   verification_code_expires_at TIMESTAMP NULL DEFAULT NULL,
+  -- Rappel "votre adresse expire bientot" deja envoye : evite un email par
+  -- jour tant que l utilisateur n a pas reconfirme (voir src/jobs/).
+  reverification_reminder_sent_at TIMESTAMP NULL DEFAULT NULL,
   role           ENUM('user','admin') NOT NULL DEFAULT 'user',
   is_blocked     BOOLEAN         NOT NULL DEFAULT FALSE,     -- req 9 : blocage
   blocked_reason VARCHAR(255)        NULL DEFAULT NULL,
@@ -52,6 +55,9 @@ CREATE TABLE users (
   PRIMARY KEY (id),
   UNIQUE KEY uq_users_email (email),
   KEY idx_users_role (role),
+  -- La confirmation d email ne vaut que 6 mois : colonne filtree a chaque
+  -- listing d annonces et balayee par le job de relance.
+  KEY idx_users_email_verified (email_verified_at),
   -- Accepte le domaine racine et ses sous-domaines (ex. @edu.hes-so.ch).
   CONSTRAINT chk_users_email_domain CHECK (
     email LIKE '%@hes-so.ch'  OR email LIKE '%.hes-so.ch'  OR
