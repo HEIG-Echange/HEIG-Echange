@@ -150,8 +150,24 @@ docker compose up --build
 
 `scripts/seed_demo_data.py` remplit une instance vide avec les comptes et les
 annonces de la maquette Figma (photos multiples comprises), pour une démo ou
+une reprise de développement. Il passe uniquement par l'API HTTP, donc toutes
+les règles métier s'appliquent — y compris la confirmation d'adresse, ce qui
+impose de démarrer l'app en mode test :
 
 ```bash
 docker compose -f compose.yaml -f compose.dev.yaml up --build -d
 python3 scripts/seed_demo_data.py
 ```
+
+Sans Python local, le script tourne aussi dans un conteneur (il n'utilise que
+la bibliothèque standard) :
+
+```bash
+docker run --rm --network host -v "$PWD:/work" -w /work python:3.12-alpine python scripts/seed_demo_data.py
+```
+
+Options utiles : `--dry-run` (affiche sans rien écrire), `--base-url` (cibler
+staging), `--photos-dir` (utiliser de vraies photos au lieu des visuels
+générés). Le script est réentrant : relancé, il réutilise les comptes existants
+et ne republie pas les annonces déjà en ligne.
+
