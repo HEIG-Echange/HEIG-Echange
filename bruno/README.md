@@ -68,7 +68,8 @@ docker compose -f compose.yaml -f compose.dev.yaml down -v
 - `listings/` — creation, liste, detail, modification d'annonces
 - `reports/` — signalement d'une annonce
 - `admin/` — moderation : signalements, blocage/deblocage, historique,
-  annonces (y compris supprimees)
+  annonces (y compris supprimees), et reglages de l'analyse IA
+  (`Get`/`Update AI Settings`)
 - `test-suite/` — suite automatisee (inscription, login correct/incorrect,
   compte, logout, domaine refuse)
 - `environments/Local.bru` — `baseUrl` pour l'API locale

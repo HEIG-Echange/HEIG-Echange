@@ -1,0 +1,24 @@
+meta {
+  name: 17 Get Categories (Flow)
+  type: http
+  seq: 17
+}
+
+get {
+  url: {{baseUrl}}/categories
+  body: none
+  auth: none
+}
+
+tests {
+  test("renvoie 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("renvoie la liste de reference (non vide, avec slug/label)", function () {
+    const categories = res.getBody();
+    expect(categories).to.be.an("array").that.is.not.empty;
+    expect(categories[0]).to.have.property("slug");
+    expect(categories[0]).to.have.property("label");
+  });
+}

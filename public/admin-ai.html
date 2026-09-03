@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Échange — Réglages IA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="js/tailwind-setup.js"></script>
+<link rel="stylesheet" href="css/app.css" />
+</head>
+<body class="text-appfg antialiased">
+
+<nav class="side-nav" aria-label="Navigation principale"></nav>
+
+<div class="app-shell">
+  <header class="flex-shrink-0 bg-white border-b border-appfg/10 sticky top-0 z-20">
+    <div class="app-container py-3 flex items-center gap-3">
+      <a href="profile.html" aria-label="Retour au profil"
+         class="w-9 h-9 rounded-full bg-secondarybg flex items-center justify-center flex-shrink-0 hover:bg-mutedbg transition-colors">←</a>
+      <h1 class="text-lg font-extrabold">Réglages de l'analyse IA</h1>
+      <button id="save-btn-desktop" type="button" data-save-mirror
+              class="hidden md:inline-flex ml-auto bg-brand hover:bg-brand-dark text-white font-bold rounded-xl px-5 py-2.5 text-sm transition-colors disabled:opacity-50">
+        Enregistrer
+      </button>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <div id="loading" class="app-container py-16 text-center text-sm text-mutedfg">Chargement…</div>
+
+    <div id="editor" class="app-container py-5 max-w-3xl hidden space-y-5">
+      <div id="error-box" class="hidden bg-red-50 border border-red-200 text-red-700 text-sm whitespace-pre-line rounded-xl px-3 py-2.5"></div>
+      <div id="saved-box" class="hidden bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm rounded-xl px-3 py-2.5">
+        Réglages enregistrés. Ils s'appliquent dès la prochaine analyse.
+      </div>
+
+      <!-- Etat du fournisseur : sans jeton, la page reste utile (on peut
+           préparer les prompts) mais l'analyse répond 503. -->
+      <div id="provider-box" class="border rounded-xl px-4 py-3 text-sm"></div>
+
+      <section>
+        <label for="model-input" class="block text-xs font-bold uppercase tracking-wide mb-1.5">Modèle Hugging Face</label>
+        <input id="model-input" type="text" spellcheck="false"
+               class="w-full bg-white border border-appfg/15 rounded-xl px-3.5 py-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand/30" />
+        <p class="text-[11px] text-mutedfg mt-1">
+          Identifiant du modèle sur Hugging Face, par exemple <code>Qwen/Qwen2.5-VL-7B-Instruct</code>.
+          Il doit accepter les images (modèle « vision »).
+        </p>
+      </section>
+
+      <section>
+        <label for="system-input" class="block text-xs font-bold uppercase tracking-wide mb-1.5">Prompt système</label>
+        <textarea id="system-input" rows="5"
+                  class="w-full bg-white border border-appfg/15 rounded-xl px-3.5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30"></textarea>
+        <p class="text-[11px] text-mutedfg mt-1">Le rôle donné au modèle et le format de réponse attendu.</p>
+      </section>
+
+      <section>
+        <label for="user-input" class="block text-xs font-bold uppercase tracking-wide mb-1.5">Prompt d'analyse</label>
+        <textarea id="user-input" rows="12"
+                  class="w-full bg-white border border-appfg/15 rounded-xl px-3.5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30"></textarea>
+        <p class="text-[11px] text-mutedfg mt-1">
+          Envoyé avec la photo. Deux marqueurs sont remplacés à chaque appel :
+          <code>{{categories}}</code> (les catégories réellement en base) et
+          <code>{{conditions}}</code> (les états autorisés). Gardez-les, sinon le
+          modèle risque de proposer des valeurs que l'application refusera.
+        </p>
+      </section>
+
+      <div class="flex flex-col sm:flex-row gap-2">
+        <button id="reset-btn" type="button"
+                class="flex-1 border border-appfg/15 bg-white font-bold rounded-xl py-3 text-sm hover:bg-secondarybg transition-colors">
+          Revenir aux valeurs par défaut
+        </button>
+        <button id="save-btn" type="button"
+                class="flex-1 bg-brand hover:bg-brand-dark text-white font-bold rounded-xl py-3 text-sm transition-colors disabled:opacity-50">
+          Enregistrer
+        </button>
+      </div>
+
+      <p class="text-[11px] text-mutedfg">
+        Les valeurs enregistrées ici sont stockées en base et priment sur la
+        configuration de déploiement. « Revenir aux valeurs par défaut » efface
+        cette personnalisation ; le jeton d'API, lui, reste une variable
+        d'environnement du serveur et ne se modifie pas depuis cette page.
+      </p>
+    </div>
+  </main>
+
+  <nav class="bottom-nav" aria-label="Navigation principale"></nav>
+</div>
+
+<script type="module" src="js/pages/admin-ai.js"></script>
+</body>
+</html>

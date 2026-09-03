@@ -39,6 +39,12 @@ CREATE TABLE users (
   display_name   VARCHAR(120)    NOT NULL,
   avatar_url     VARCHAR(512)        NULL DEFAULT NULL,
   password_hash  VARCHAR(255)    NOT NULL,                    -- hash bcrypt, jamais en clair
+  email_verified_at TIMESTAMP        NULL DEFAULT NULL,        -- confirmation par code recu par email
+  verification_code VARCHAR(8)       NULL DEFAULT NULL,
+  verification_code_expires_at TIMESTAMP NULL DEFAULT NULL,
+  -- Rappel "votre adresse expire bientot" deja envoye : evite un email par
+  -- jour tant que l utilisateur n a pas reconfirme (voir src/jobs/).
+  reverification_reminder_sent_at TIMESTAMP NULL DEFAULT NULL,
   role           ENUM('user','admin') NOT NULL DEFAULT 'user',
   is_blocked     BOOLEAN         NOT NULL DEFAULT FALSE,     -- req 9 : blocage
   blocked_reason VARCHAR(255)        NULL DEFAULT NULL,
@@ -49,6 +55,9 @@ CREATE TABLE users (
   PRIMARY KEY (id),
   UNIQUE KEY uq_users_email (email),
   KEY idx_users_role (role),
+  -- La confirmation d email ne vaut que 6 mois : colonne filtree a chaque
+  -- listing d annonces et balayee par le job de relance.
+  KEY idx_users_email_verified (email_verified_at),
   -- Accepte le domaine racine et ses sous-domaines (ex. @edu.hes-so.ch).
   CONSTRAINT chk_users_email_domain CHECK (
     email LIKE '%@hes-so.ch'  OR email LIKE '%.hes-so.ch'  OR
@@ -114,6 +123,27 @@ CREATE TABLE listing_photos (
   KEY idx_photos_listing (listing_id, position),
   CONSTRAINT fk_photos_listing
     FOREIGN KEY (listing_id) REFERENCES listings(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------------
+-- listing_interests — un etudiant se declare interesse par une annonce
+--
+-- Case a cocher "je suis interesse" sur une annonce : un enregistrement par
+-- (listing_id, user_id), pas un log append-only (UNIQUE KEY ci-dessous) — on
+-- peut donc s'inscrire puis se desinscrire sans accumuler de doublons.
+-- ---------------------------------------------------------------------------
+CREATE TABLE listing_interests (
+  id         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  listing_id BIGINT UNSIGNED NOT NULL,
+  user_id    BIGINT UNSIGNED NOT NULL,
+  created_at TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_interests_listing_user (listing_id, user_id),
+  KEY idx_interests_user (user_id),
+  CONSTRAINT fk_interests_listing
+    FOREIGN KEY (listing_id) REFERENCES listings(id) ON DELETE CASCADE,
+  CONSTRAINT fk_interests_user
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------------
@@ -186,3 +216,24 @@ CREATE TABLE moderation_logs (
     FOREIGN KEY (actor_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+
+-- ---------------------------------------------------------------------------
+-- app_settings — parametres de l'application modifiables par un admin
+--
+-- Table cle/valeur volontairement generique. Une cle absente = "valeur par
+-- defaut du code" : on n'insere donc rien au seed, et supprimer une ligne
+-- revient a revenir au defaut.
+--
+-- Utilisee aujourd'hui par l'analyse IA des photos (cles ai.model,
+-- ai.system_prompt, ai.user_prompt — voir src/aiSettings.ts) pour que les
+-- prompts soient modifiables depuis /admin-ai.html sans redeploiement.
+-- ---------------------------------------------------------------------------
+CREATE TABLE app_settings (
+  setting_key   VARCHAR(64)     NOT NULL,
+  setting_value TEXT                NULL,
+  updated_at    TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  updated_by    BIGINT UNSIGNED     NULL,
+  PRIMARY KEY (setting_key),
+  CONSTRAINT fk_app_settings_user
+    FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
