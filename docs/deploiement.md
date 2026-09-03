@@ -129,6 +129,18 @@ une même machine partageraient le même nom de projet Compose et se
 remplaceraient mutuellement. `APP_PORT` doit lui aussi différer, sinon le second
 déploiement échoue sur un conflit de port.
 
+
+Pour la CI/CD créer une fois le répertoire de sauvegarde et vérifier qu'il est inscriptible par `heigdeploy` :
+
+```bash
+mkdir -p /home/heigdeploy/heig/_backups
+chown heigdeploy:heigdeploy /home/heigdeploy/heig/_backups
+```
+
+`DB_BACKUP_PATH` est obligatoire pour la CI/CD. Avant chaque arrêt de la stack, la CD écrit un dump MariaDB compressé nommé avec la timestamp.
+(exemple: `heig_echange-20260903-143916Z.sql.gz`)
+
+
 ## Ce que fait le déploiement
 
 1. `git archive` de l'arbre du commit — pas de fichier local parasite, pas
