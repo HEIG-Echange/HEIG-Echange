@@ -61,11 +61,8 @@ echo "==> Mise a jour des sources vers ${RELEASE_SHA}"
 tar -xzf "$ARCHIVE" -C "$DEPLOY_PATH"
 printf '%s\n' "$RELEASE_SHA" > .release
 
-# Le dump est fait avant l'arret de Compose afin de sauvegarder l'etat qui est
-# en production. db-backup.sh lit DB_BACKUP_PATH depuis le .env de
-# la machine et fabrique db_<environnement>_<date>_<heure>.sql.gz.
+# Le dump est fait avant l'arret du container
 echo "==> Sauvegarde de la base (${DEPLOY_ENV})"
-# DEPLOY_ENV="$DEPLOY_ENV" ./scripts/db-backup.sh
 export DEPLOY_ENV="$DEPLOY_ENV"
 dbbkpscript="./scripts/db-backup.sh"
 bash $dbbkpscript || sh $dbbkpscript
