@@ -5,7 +5,7 @@
 # Complement en ligne de commande de l'export graphique de phpMyAdmin : plus
 # adapte a une sauvegarde automatisee ou avant un deploiement.
 #
-#   ./scripts/db-backup.sh                 -> backups/heig-echange-<horodatage>.sql.gz
+#   ./scripts/db-backup.sh                 -> backups/heig_echange-local-<horodatage>.sql.gz
 #   DEPLOY_ENV=staging DB_BACKUP_PATH=/srv/backups ./scripts/db-backup.sh
 #     -> /srv/backups/heig_echange-staging-YYYYMMDD-HHMMSSZ.sql.gz
 #

@@ -43,7 +43,7 @@ Les variables principales à vérifier sont les suivantes :
 ### Lancement standard
 
 ```bash
-docker compose up -d
+docker compose up --build -d
 ```
 
 Cette commande utilise `compose.yaml` et démarre les services définis par défaut dans le projet.

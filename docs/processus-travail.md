@@ -1,6 +1,6 @@
 # Processus de travail
 
-Brouillon
+
 
 ## Git flow
 
