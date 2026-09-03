@@ -31,6 +31,10 @@ on:
         description: "Dossier de deploiement par defaut, si la variable DEPLOY_PATH n'est pas definie"
         required: true
         type: string
+      image:
+        description: "Reference de l'image dans Gihub container registry"
+        required: true
+        type: string
 
 jobs:
   deploy:
@@ -54,6 +58,7 @@ jobs:
       DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
       DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || inputs.deploy_path }}
       DEPLOY_ENV: ${{ inputs.environment }}
+      APP_IMAGE: ${{ inputs.image }}
 
     steps:
       - uses: actions/checkout@v7
@@ -152,6 +157,7 @@ jobs:
              RELEASE_SHA='$GITHUB_SHA' \
              ARCHIVE='/tmp/heig-echange-$GITHUB_SHA.tar.gz' \
              APP_VERSION='$APP_VERSION' \
+             APP_IMAGE='$APP_IMAGE' \
              bash -s" < scripts/deploy-remote.sh
 
       - name: Nettoyage des identifiants
