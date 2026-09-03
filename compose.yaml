@@ -14,7 +14,9 @@ services:
       args:
         VERSION: ${VERSION:-0.1.0}
         REVISION: ${REVISION:-local}
-    image: heig-echange:${VERSION:-local}
+    # En CI/CD APP_IMAGE est l'image du GHCR. 
+    # En local, build local est lancé depuis les osurces
+    image: ${APP_IMAGE:-heig-echange:${VERSION:-local}}
 
     depends_on:
       db:

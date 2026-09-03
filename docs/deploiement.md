@@ -39,7 +39,17 @@ Initialement, la machine serveur était hébergée dans un appartement (Raspberr
 | `DEPLOY_SSH_PRIVATE_KEY` | oui | — | clé privée de déploiement **sans passphrase** (sinon pas automatisable dans le pipeline). à générer puis à attribuer à Github. Ajouter la clef publique dans le fichier `~/.ssh/authorized_keys` du serveur cible. |
 | `DEPLOY_SSH_KNOWN_HOSTS` | oui | — | clé publique de l'hôte, pour vérifier la machine |
 
-Exemple de valeur pour 
+Exemple de valeur pour `DEPLOY_SSH_KNOWN_HOSTS` (copier la valeur dans une variable d'environnement GitHub). Pour connaître la valeur à mettre dans la variable d environnement, vous pouvez 1 vous connecter en ssh depuis une machine en 4G (pour simuler la CD github qui passe par internet) vers la machine cible, accepter le fingerprinting, puis récupérer les lignes ajoutées dans le fichier `~/.ssh/known_hosts` après cette connexion, qui sont en lien avec la machine cible.
+
+Exemple:
+
+```bash
+vps123808.serveur-vps.net ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEIHw5CuM3zAHpBLUhfrYJDb37GsTvfi8v2o1H4mLQ6B
+vps123808.serveur-vps.net ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDnMmUkOYstWJQP6hOYbZWvvOkiiHVSsd1xgaW9Ev3baRg+/BvTaIWcxqvF5DdUlEUPOWKsIimedJw/5d8oS5sVuFUnqjoYMwlentRCtRHEYjzKQaWeGsXNsZhQjrhf75Km4DdaWmB+c4GFMiP9/kZZJJUlLzkA9xysm99cny2NAua2itWG7fa6rwNRoMzI9CJlZcstXCktQ7yKttsE/ANcGOPKiJe6TIg97x4xdcNqfBxbDvl62o2PHHQnlYKSD8CbrmB6DiKVz5Hq3qAWRHsCkONDUIwCJbDcVmZQlq/TxmKyK++b09VvV8Ww+b71JLFB5wc6BewbhJbODYJ3vrmtSiKpBcSejeyEKMhA6k2CKRJYaXysQyhXDbSdleHokS3HqwxM6pKz9Z0z19yhfTkOg6VdIfDknw4D/No2UBkcAs/pVbK02aGe/tYqx24/5G/dFYRixKTu87LDUIuvHzOr105Qw7rVq6O4onxZ/rhK4dFdOSXoeSDJvROFzK1J92U=
+vps123808.serveur-vps.net ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBKBdQdGE2gMlnwwJ2b8bQ1iivbHPqqJps6rHq4hDvT4gWxUXCafsgZgwmp2sQRfsqE7gUV+mQPOYgsMFipJJcm0=
+```
+
+
 
 ### Secret d'environnement (une valeur par environnement)
 
