@@ -1,0 +1,195 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 940" width="1600" height="940" font-family="Segoe UI, Arial, Helvetica, sans-serif">
+  <rect width="1600" height="940" fill="#ffffff"/>
+
+  <!-- ===== En-tete ===== -->
+  <text x="60" y="56" font-size="32" font-weight="700" fill="#1a1816">HEIG-Échange — Modèle de données</text>
+  <text x="60" y="86" font-size="16" fill="#6f6b65">MariaDB 11.4 · 13 tables InnoDB · clés étrangères déclarées partout · schéma versionné dans le dépôt et rejoué à la création du volume</text>
+  <rect x="60" y="100" width="130" height="4" fill="#c8102e"/>
+  <rect x="190" y="101" width="1350" height="2" fill="#e6e2dc"/>
+
+  <text x="60" y="146" font-size="13" font-weight="700" fill="#c8102e" letter-spacing="1.5">COMPTES ET CERCLES</text>
+  <text x="600" y="146" font-size="13" font-weight="700" fill="#c8102e" letter-spacing="1.5">ANNONCES</text>
+  <text x="1000" y="146" font-size="13" font-weight="700" fill="#c8102e" letter-spacing="1.5">ÉCHANGES</text>
+  <text x="1290" y="146" font-size="13" font-weight="700" fill="#c8102e" letter-spacing="1.5">MODÉRATION ET RÉGLAGES</text>
+
+  <!-- ===== users ===== -->
+  <rect x="60" y="170" width="300" height="200" rx="12" fill="#eef3fa" stroke="#b7c9e2" stroke-width="1.8"/>
+  <rect x="60" y="170" width="300" height="34" rx="12" fill="#b7c9e2"/>
+  <rect x="60" y="192" width="300" height="12" fill="#b7c9e2"/>
+  <text x="78" y="193" font-size="17" font-weight="700" fill="#1a1816">users</text>
+  <text x="78" y="228" font-size="13" fill="#1a1816">email — @heig-vd.ch / @hes-so.ch (CHECK)</text>
+  <text x="78" y="250" font-size="13" fill="#1a1816">password_hash — bcrypt</text>
+  <text x="78" y="272" font-size="13" fill="#1a1816">email_verified_at — point de départ des 6 mois</text>
+  <text x="78" y="294" font-size="13" fill="#1a1816">verification_code (+ expiration)</text>
+  <text x="78" y="316" font-size="13" fill="#1a1816">role — user | admin</text>
+  <text x="78" y="338" font-size="13" fill="#1a1816">is_blocked · deleted_at (suppression douce)</text>
+  <text x="78" y="360" font-size="12.5" fill="#6f6b65">Domaine imposé par la base (CHECK).</text>
+
+  <line x1="210" y1="370" x2="210" y2="397" stroke="#8f8a83" stroke-width="1.8"/>
+  <polygon points="210,405 205,395 215,395" fill="#8f8a83"/>
+  <text x="220" y="392" font-size="12" fill="#6f6b65">1—N</text>
+
+  <!-- ===== friends_groups ===== -->
+  <rect x="60" y="405" width="300" height="115" rx="12" fill="#f5f4f0" stroke="#d9d5cf" stroke-width="1.8"/>
+  <rect x="60" y="405" width="300" height="34" rx="12" fill="#e2ddd6"/>
+  <rect x="60" y="427" width="300" height="12" fill="#e2ddd6"/>
+  <text x="78" y="428" font-size="17" font-weight="700" fill="#1a1816">friends_groups</text>
+  <text x="78" y="463" font-size="13" fill="#1a1816">name · owner_id → users</text>
+  <text x="78" y="485" font-size="13" fill="#1a1816">deleted_at (suppression douce)</text>
+  <text x="78" y="507" font-size="12.5" fill="#6f6b65">Cercles créés librement par chaque membre.</text>
+
+  <line x1="210" y1="520" x2="210" y2="547" stroke="#8f8a83" stroke-width="1.8"/>
+  <polygon points="210,555 205,545 215,545" fill="#8f8a83"/>
+  <text x="220" y="542" font-size="12" fill="#6f6b65">1—N</text>
+
+  <!-- ===== friends_group_members ===== -->
+  <rect x="60" y="555" width="300" height="115" rx="12" fill="#f5f4f0" stroke="#d9d5cf" stroke-width="1.8"/>
+  <rect x="60" y="555" width="300" height="34" rx="12" fill="#e2ddd6"/>
+  <rect x="60" y="577" width="300" height="12" fill="#e2ddd6"/>
+  <text x="78" y="578" font-size="17" font-weight="700" fill="#1a1816">friends_group_members</text>
+  <text x="78" y="613" font-size="13" fill="#1a1816">friends_group_id → friends_groups</text>
+  <text x="78" y="635" font-size="13" fill="#1a1816">user_id → users</text>
+  <text x="78" y="657" font-size="12.5" fill="#6f6b65">Unique (groupe, membre) : pas de doublon.</text>
+
+  <!-- ===== categories ===== -->
+  <rect x="600" y="170" width="360" height="95" rx="12" fill="#f5f4f0" stroke="#d9d5cf" stroke-width="1.8"/>
+  <rect x="600" y="170" width="360" height="34" rx="12" fill="#e2ddd6"/>
+  <rect x="600" y="192" width="360" height="12" fill="#e2ddd6"/>
+  <text x="618" y="193" font-size="17" font-weight="700" fill="#1a1816">categories</text>
+  <text x="618" y="228" font-size="13" fill="#1a1816">name · slug — livres, meubles, électronique…</text>
+  <text x="618" y="252" font-size="12.5" fill="#6f6b65">Référentiel fermé : pas de catégorie inventée.</text>
+
+  <line x1="780" y1="265" x2="780" y2="292" stroke="#8f8a83" stroke-width="1.8"/>
+  <polygon points="780,300 775,290 785,290" fill="#8f8a83"/>
+  <text x="790" y="287" font-size="12" fill="#6f6b65">1—N</text>
+
+  <!-- ===== listings ===== -->
+  <rect x="600" y="300" width="360" height="250" rx="12" fill="#fdeef1" stroke="#edc3cb" stroke-width="2"/>
+  <rect x="600" y="300" width="360" height="34" rx="12" fill="#f3c8d0"/>
+  <rect x="600" y="322" width="360" height="12" fill="#f3c8d0"/>
+  <text x="618" y="323" font-size="18" font-weight="700" fill="#1a1816">listings</text>
+  <text x="618" y="358" font-size="13" fill="#1a1816">owner_id → users · category_id → categories</text>
+  <text x="618" y="380" font-size="13" fill="#1a1816">title · description</text>
+  <text x="618" y="402" font-size="13" fill="#1a1816">item_condition — neuf … à réparer</text>
+  <text x="618" y="424" font-size="13" fill="#1a1816">status — available | reserved | closed</text>
+  <text x="618" y="446" font-size="13" fill="#1a1816">location · closed_at · deleted_at</text>
+  <text x="618" y="468" font-size="13" fill="#1a1816">is_priority · end_priority_at</text>
+  <text x="618" y="496" font-size="12.5" fill="#6f6b65">Index FULLTEXT (titre + description) : la recherche est faite</text>
+  <text x="618" y="514" font-size="12.5" fill="#6f6b65">par la base, pas en filtrant des tableaux en mémoire.</text>
+  <text x="618" y="536" font-size="12.5" fill="#6f6b65">Passé end_priority_at, l'annonce redevient publique sans job.</text>
+
+  <line x1="700" y1="550" x2="700" y2="592" stroke="#8f8a83" stroke-width="1.8"/>
+  <polygon points="700,600 695,590 705,590" fill="#8f8a83"/>
+  <text x="710" y="580" font-size="12" fill="#6f6b65">1—N</text>
+
+  <!-- ===== listing_photos ===== -->
+  <rect x="600" y="600" width="360" height="110" rx="12" fill="#f5f4f0" stroke="#d9d5cf" stroke-width="1.8"/>
+  <rect x="600" y="600" width="360" height="34" rx="12" fill="#e2ddd6"/>
+  <rect x="600" y="622" width="360" height="12" fill="#e2ddd6"/>
+  <text x="618" y="623" font-size="17" font-weight="700" fill="#1a1816">listing_photos</text>
+  <text x="618" y="658" font-size="13" fill="#1a1816">listing_id → listings · url · position</text>
+  <text x="618" y="682" font-size="12.5" fill="#6f6b65">L'ordre est stocké : la photo en position 0 sert de vignette</text>
+  <text x="618" y="700" font-size="12.5" fill="#6f6b65">dans la grille, les suivantes forment le carrousel.</text>
+
+  <!-- ===== priority_groups ===== -->
+  <rect x="375" y="600" width="210" height="140" rx="12" fill="#fdf4e7" stroke="#e6cfa6" stroke-width="1.8"/>
+  <rect x="375" y="600" width="210" height="34" rx="12" fill="#efd9b3"/>
+  <rect x="375" y="622" width="210" height="12" fill="#efd9b3"/>
+  <text x="393" y="623" font-size="16" font-weight="700" fill="#1a1816">priority_groups</text>
+  <text x="393" y="658" font-size="13" fill="#1a1816">listing_id → listings</text>
+  <text x="393" y="680" font-size="13" fill="#1a1816">friends_group_id</text>
+  <text x="393" y="702" font-size="12.5" fill="#6f6b65">Qui voit l'annonce</text>
+  <text x="393" y="720" font-size="12.5" fill="#6f6b65">pendant l'avant-première.</text>
+
+  <!-- relation listings -> priority_groups -->
+  <polyline points="600,520 540,520 540,592" fill="none" stroke="#8f8a83" stroke-width="1.8"/>
+  <polygon points="540,600 535,590 545,590" fill="#8f8a83"/>
+  <!-- relation friends_groups -> priority_groups -->
+  <polyline points="360,462 420,462 420,592" fill="none" stroke="#8f8a83" stroke-width="1.8"/>
+  <polygon points="420,600 415,590 425,590" fill="#8f8a83"/>
+
+  <!-- relation users -> listings -->
+  <polyline points="360,250 480,250 480,340 592,340" fill="none" stroke="#8f8a83" stroke-width="1.8"/>
+  <polygon points="600,340 590,335 590,345" fill="#8f8a83"/>
+  <text x="392" y="242" font-size="12" fill="#6f6b65">1—N  publie</text>
+
+  <!-- ===== listing_interests ===== -->
+  <rect x="1000" y="170" width="260" height="130" rx="12" fill="#eef6ef" stroke="#bcd8c0" stroke-width="1.8"/>
+  <rect x="1000" y="170" width="260" height="34" rx="12" fill="#cfe4d2"/>
+  <rect x="1000" y="192" width="260" height="12" fill="#cfe4d2"/>
+  <text x="1018" y="193" font-size="16" font-weight="700" fill="#1a1816">listing_interests</text>
+  <text x="1018" y="228" font-size="13" fill="#1a1816">listing_id · user_id</text>
+  <text x="1018" y="252" font-size="12.5" fill="#6f6b65">Le « je suis intéressé »</text>
+  <text x="1018" y="270" font-size="12.5" fill="#6f6b65">(favori) : unique par couple,</text>
+  <text x="1018" y="288" font-size="12.5" fill="#6f6b65">réversible d'un clic.</text>
+
+  <polyline points="960,340 980,340 980,242 992,242" fill="none" stroke="#8f8a83" stroke-width="1.8"/>
+  <polygon points="1000,242 990,237 990,247" fill="#8f8a83"/>
+
+  <!-- ===== messages ===== -->
+  <rect x="1000" y="340" width="260" height="130" rx="12" fill="#f5f4f0" stroke="#d9d5cf" stroke-width="1.8"/>
+  <rect x="1000" y="340" width="260" height="34" rx="12" fill="#e2ddd6"/>
+  <rect x="1000" y="362" width="260" height="12" fill="#e2ddd6"/>
+  <text x="1018" y="363" font-size="16" font-weight="700" fill="#1a1816">messages</text>
+  <text x="1018" y="398" font-size="13" fill="#1a1816">listing_id · sender_id</text>
+  <text x="1018" y="420" font-size="13" fill="#1a1816">receiver_id · body</text>
+  <text x="1018" y="444" font-size="12.5" fill="#6f6b65">Prévu pour la messagerie</text>
+  <text x="1018" y="462" font-size="12.5" fill="#6f6b65">interne ; le MVP passe par Teams.</text>
+
+  <line x1="962" y1="405" x2="992" y2="405" stroke="#8f8a83" stroke-width="1.8"/>
+  <polygon points="1000,405 990,400 990,410" fill="#8f8a83"/>
+
+  <!-- ===== notifications ===== -->
+  <rect x="1000" y="510" width="260" height="160" rx="12" fill="#eef6ef" stroke="#bcd8c0" stroke-width="1.8"/>
+  <rect x="1000" y="510" width="260" height="34" rx="12" fill="#cfe4d2"/>
+  <rect x="1000" y="532" width="260" height="12" fill="#cfe4d2"/>
+  <text x="1018" y="533" font-size="16" font-weight="700" fill="#1a1816">notifications</text>
+  <text x="1018" y="568" font-size="13" fill="#1a1816">user_id → users · type</text>
+  <text x="1018" y="590" font-size="13" fill="#1a1816">title · body · link · read_at</text>
+  <text x="1018" y="614" font-size="12.5" fill="#6f6b65">Texte figé à l'écriture :</text>
+  <text x="1018" y="632" font-size="12.5" fill="#6f6b65">la notification reste lisible</text>
+  <text x="1018" y="650" font-size="12.5" fill="#6f6b65">même si l'annonce a disparu.</text>
+
+  <!-- ===== reports ===== -->
+  <rect x="1290" y="170" width="250" height="150" rx="12" fill="#fdeef1" stroke="#edc3cb" stroke-width="1.8"/>
+  <rect x="1290" y="170" width="250" height="34" rx="12" fill="#f3c8d0"/>
+  <rect x="1290" y="192" width="250" height="12" fill="#f3c8d0"/>
+  <text x="1308" y="193" font-size="16" font-weight="700" fill="#1a1816">reports</text>
+  <text x="1308" y="228" font-size="13" fill="#1a1816">listing_id · reporter_id</text>
+  <text x="1308" y="250" font-size="13" fill="#1a1816">reason · status</text>
+  <text x="1308" y="274" font-size="12.5" fill="#6f6b65">Signalement d'une annonce</text>
+  <text x="1308" y="292" font-size="12.5" fill="#6f6b65">par n'importe quel membre</text>
+  <text x="1308" y="310" font-size="12.5" fill="#6f6b65">connecté.</text>
+
+  <line x1="1415" y1="320" x2="1415" y2="352" stroke="#8f8a83" stroke-width="1.8"/>
+  <polygon points="1415,360 1410,350 1420,350" fill="#8f8a83"/>
+
+  <!-- ===== moderation_logs ===== -->
+  <rect x="1290" y="360" width="250" height="150" rx="12" fill="#f5f4f0" stroke="#d9d5cf" stroke-width="1.8"/>
+  <rect x="1290" y="360" width="250" height="34" rx="12" fill="#e2ddd6"/>
+  <rect x="1290" y="382" width="250" height="12" fill="#e2ddd6"/>
+  <text x="1308" y="383" font-size="16" font-weight="700" fill="#1a1816">moderation_logs</text>
+  <text x="1308" y="418" font-size="13" fill="#1a1816">admin_id · action · cible</text>
+  <text x="1308" y="440" font-size="13" fill="#1a1816">created_at</text>
+  <text x="1308" y="464" font-size="12.5" fill="#6f6b65">Toute action d'admin laisse</text>
+  <text x="1308" y="482" font-size="12.5" fill="#6f6b65">une trace : qui, quoi, quand.</text>
+  <text x="1308" y="500" font-size="12.5" fill="#6f6b65">Historique non modifiable.</text>
+
+  <!-- ===== app_settings ===== -->
+  <rect x="1290" y="550" width="250" height="120" rx="12" fill="#fdf4e7" stroke="#e6cfa6" stroke-width="1.8"/>
+  <rect x="1290" y="550" width="250" height="34" rx="12" fill="#efd9b3"/>
+  <rect x="1290" y="572" width="250" height="12" fill="#efd9b3"/>
+  <text x="1308" y="573" font-size="16" font-weight="700" fill="#1a1816">app_settings</text>
+  <text x="1308" y="608" font-size="13" fill="#1a1816">clé → valeur (JSON)</text>
+  <text x="1308" y="632" font-size="12.5" fill="#6f6b65">Modèle et prompts de l'IA</text>
+  <text x="1308" y="650" font-size="12.5" fill="#6f6b65">réglables sans redéploiement.</text>
+
+  <!-- ===== Bandeau bas ===== -->
+  <rect x="60" y="770" width="1480" height="130" rx="14" fill="#f5f4f0" stroke="#d9d5cf" stroke-width="1.5"/>
+  <rect x="60" y="770" width="6" height="130" rx="3" fill="#c8102e"/>
+  <text x="88" y="802" font-size="17" font-weight="700" fill="#1a1816">Quatre partis pris</text>
+
+  <text x="88" y="836" font-size="14" fill="#1a1816"><tspan font-weight="700">Les règles vivent dans la base.</tspan> Domaine d'email, catégories, états d'un objet : contraintes SQL, pas seulement des vérifications applicatives.</text>
+  <text x="88" y="862" font-size="14" fill="#1a1816"><tspan font-weight="700">Rien n'est supprimé pour de bon.</tspan> Comptes, annonces et groupes portent un deleted_at : on masque, on n'efface pas — l'historique de modération reste vérifiable.</text>
+  <text x="88" y="888" font-size="14" fill="#1a1816"><tspan font-weight="700">Pas d'orphelins.</tspan> Toutes les clés étrangères sont déclarées (CASCADE ou RESTRICT). <tspan font-weight="700">Schéma versionné :</tspan> init au premier démarrage, migrations idempotentes ensuite.</text>
+</svg>

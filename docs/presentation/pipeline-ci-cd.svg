@@ -1,0 +1,152 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 940" width="1600" height="940" font-family="Segoe UI, Arial, Helvetica, sans-serif">
+  <rect width="1600" height="940" fill="#ffffff"/>
+
+  <!-- ===== En-tete ===== -->
+  <text x="60" y="56" font-size="32" font-weight="700" fill="#1a1816">HEIG-Échange — Du commit à la machine</text>
+  <text x="60" y="86" font-size="16" fill="#6f6b65">GitHub Actions · quatre workflows : ci · cd · deploy · secrets-scan — aucun déploiement manuel, aucune commande tapée sur le serveur</text>
+  <rect x="60" y="100" width="130" height="4" fill="#c8102e"/>
+  <rect x="190" y="101" width="1350" height="2" fill="#e6e2dc"/>
+
+  <!-- ===== Bande 1 : CI ===== -->
+  <rect x="60" y="140" width="1480" height="150" rx="14" fill="#f5f4f0" stroke="#d9d5cf" stroke-width="1.5"/>
+  <rect x="60" y="140" width="6" height="150" rx="3" fill="#c8102e"/>
+  <text x="84" y="172" font-size="19" font-weight="700" fill="#1a1816">CI — sur chaque pull request</text>
+  <text x="404" y="172" font-size="14" fill="#6f6b65">tout doit être vert avant la revue et le merge · les étapes tournent en parallèle</text>
+
+  <rect x="80" y="188" width="216" height="86" rx="10" fill="#ffffff" stroke="#d9d5cf" stroke-width="1.5"/>
+  <text x="188" y="220" font-size="15" font-weight="700" fill="#1a1816" text-anchor="middle">ESLint</text>
+  <text x="188" y="244" font-size="12.5" fill="#6f6b65" text-anchor="middle">config plate, TypeScript</text>
+  <text x="188" y="262" font-size="12.5" fill="#6f6b65" text-anchor="middle">strict</text>
+
+  <rect x="320" y="188" width="216" height="86" rx="10" fill="#ffffff" stroke="#d9d5cf" stroke-width="1.5"/>
+  <text x="428" y="220" font-size="15" font-weight="700" fill="#1a1816" text-anchor="middle">Vitest</text>
+  <text x="428" y="244" font-size="12.5" fill="#6f6b65" text-anchor="middle">unitaires + intégration</text>
+  <text x="428" y="262" font-size="12.5" fill="#6f6b65" text-anchor="middle">HTTP (Supertest)</text>
+
+  <rect x="560" y="188" width="216" height="86" rx="10" fill="#ffffff" stroke="#d9d5cf" stroke-width="1.5"/>
+  <text x="668" y="220" font-size="15" font-weight="700" fill="#1a1816" text-anchor="middle">Build TypeScript</text>
+  <text x="668" y="244" font-size="12.5" fill="#6f6b65" text-anchor="middle">tsc — le code doit</text>
+  <text x="668" y="262" font-size="12.5" fill="#6f6b65" text-anchor="middle">compiler</text>
+
+  <rect x="800" y="188" width="216" height="86" rx="10" fill="#ffffff" stroke="#d9d5cf" stroke-width="1.5"/>
+  <text x="908" y="220" font-size="15" font-weight="700" fill="#1a1816" text-anchor="middle">Image Docker</text>
+  <text x="908" y="244" font-size="12.5" fill="#6f6b65" text-anchor="middle">build de l'image, cible</text>
+  <text x="908" y="262" font-size="12.5" fill="#6f6b65" text-anchor="middle">« verify »</text>
+
+  <rect x="1040" y="188" width="216" height="86" rx="10" fill="#ffffff" stroke="#d9d5cf" stroke-width="1.5"/>
+  <text x="1148" y="220" font-size="15" font-weight="700" fill="#1a1816" text-anchor="middle">Suite Bruno</text>
+  <text x="1148" y="244" font-size="12.5" fill="#6f6b65" text-anchor="middle">API testée de bout en</text>
+  <text x="1148" y="262" font-size="12.5" fill="#6f6b65" text-anchor="middle">bout, rapport publié</text>
+
+  <rect x="1280" y="188" width="216" height="86" rx="10" fill="#ffffff" stroke="#d9d5cf" stroke-width="1.5"/>
+  <text x="1388" y="220" font-size="15" font-weight="700" fill="#1a1816" text-anchor="middle">gitleaks</text>
+  <text x="1388" y="244" font-size="12.5" fill="#6f6b65" text-anchor="middle">aucun secret ne part</text>
+  <text x="1388" y="262" font-size="12.5" fill="#6f6b65" text-anchor="middle">dans le dépôt</text>
+
+  <!-- ===== Bande 2 : CD ===== -->
+  <rect x="60" y="325" width="1480" height="160" rx="14" fill="#eef3fa" stroke="#b7c9e2" stroke-width="1.5"/>
+  <rect x="60" y="325" width="6" height="160" rx="3" fill="#c8102e"/>
+  <text x="84" y="357" font-size="19" font-weight="700" fill="#1a1816">CD — au push sur main, staging, deva, devb ou devc</text>
+  <text x="700" y="357" font-size="14" fill="#6f6b65">déclenchement manuel possible (Actions → CD → Run workflow) · les commits qui ne touchent que la doc sont ignorés</text>
+
+  <rect x="90" y="375" width="380" height="90" rx="12" fill="#ffffff" stroke="#b7c9e2" stroke-width="1.5"/>
+  <text x="280" y="406" font-size="16" font-weight="700" fill="#1a1816" text-anchor="middle">1 · verify</text>
+  <text x="280" y="430" font-size="13" fill="#6f6b65" text-anchor="middle">Lint et tests rejoués dans l'image elle-même :</text>
+  <text x="280" y="450" font-size="13" fill="#6f6b65" text-anchor="middle">on ne fait pas confiance au run de CI précédent.</text>
+
+  <line x1="476" y1="420" x2="576" y2="420" stroke="#6f6b65" stroke-width="2"/>
+  <polygon points="584,420 574,415 574,425" fill="#6f6b65"/>
+
+  <rect x="590" y="375" width="380" height="90" rx="12" fill="#ffffff" stroke="#b7c9e2" stroke-width="1.5"/>
+  <text x="780" y="406" font-size="16" font-weight="700" fill="#1a1816" text-anchor="middle">2 · publish-image</text>
+  <text x="780" y="430" font-size="13" fill="#6f6b65" text-anchor="middle">Image poussée sur le registre GitHub (GHCR),</text>
+  <text x="780" y="450" font-size="13" fill="#6f6b65" text-anchor="middle">taguée par le SHA du commit — donc immuable.</text>
+
+  <line x1="976" y1="420" x2="1076" y2="420" stroke="#6f6b65" stroke-width="2"/>
+  <polygon points="1084,420 1074,415 1074,425" fill="#6f6b65"/>
+
+  <rect x="1090" y="375" width="380" height="90" rx="12" fill="#ffffff" stroke="#b7c9e2" stroke-width="1.5"/>
+  <text x="1280" y="406" font-size="16" font-weight="700" fill="#1a1816" text-anchor="middle">3 · deploy (un job par environnement)</text>
+  <text x="1280" y="430" font-size="13" fill="#6f6b65" text-anchor="middle">Workflow réutilisable deploy.yml : une seule</text>
+  <text x="1280" y="450" font-size="13" fill="#6f6b65" text-anchor="middle">recette, cinq environnements, zéro copier-coller.</text>
+
+  <!-- ===== Bande 3 : sur la machine ===== -->
+  <rect x="60" y="520" width="1480" height="185" rx="14" fill="#eef6ef" stroke="#bcd8c0" stroke-width="1.5"/>
+  <rect x="60" y="520" width="6" height="185" rx="3" fill="#c8102e"/>
+  <text x="84" y="552" font-size="19" font-weight="700" fill="#1a1816">Sur la machine cible, par SSH</text>
+  <text x="480" y="552" font-size="14" fill="#6f6b65">le script de déploiement est versionné dans le dépôt et poussé dans le shell distant — relisible, rejouable à la main</text>
+
+  <rect x="80" y="570" width="216" height="110" rx="10" fill="#ffffff" stroke="#bcd8c0" stroke-width="1.5"/>
+  <text x="188" y="600" font-size="14.5" font-weight="700" fill="#1a1816" text-anchor="middle">Sources envoyées</text>
+  <text x="188" y="624" font-size="12.5" fill="#6f6b65" text-anchor="middle">Archive du commit exact</text>
+  <text x="188" y="642" font-size="12.5" fill="#6f6b65" text-anchor="middle">(git archive + scp),</text>
+  <text x="188" y="660" font-size="12.5" fill="#6f6b65" text-anchor="middle">supprimée après coup</text>
+
+  <line x1="300" y1="625" x2="312" y2="625" stroke="#7a9b80" stroke-width="2"/>
+  <polygon points="318,625 308,620 308,630" fill="#7a9b80"/>
+
+  <rect x="320" y="570" width="216" height="110" rx="10" fill="#ffffff" stroke="#bcd8c0" stroke-width="1.5"/>
+  <text x="428" y="600" font-size="14.5" font-weight="700" fill="#1a1816" text-anchor="middle">Config préservée</text>
+  <text x="428" y="624" font-size="12.5" fill="#6f6b65" text-anchor="middle">Le .env de la machine</text>
+  <text x="428" y="642" font-size="12.5" fill="#6f6b65" text-anchor="middle">n'est jamais livré par le</text>
+  <text x="428" y="660" font-size="12.5" fill="#6f6b65" text-anchor="middle">pipeline : il survit</text>
+
+  <line x1="540" y1="625" x2="552" y2="625" stroke="#7a9b80" stroke-width="2"/>
+  <polygon points="558,625 548,620 548,630" fill="#7a9b80"/>
+
+  <rect x="560" y="570" width="216" height="110" rx="10" fill="#ffffff" stroke="#bcd8c0" stroke-width="1.5"/>
+  <text x="668" y="600" font-size="14.5" font-weight="700" fill="#1a1816" text-anchor="middle">Sauvegarde SQL</text>
+  <text x="668" y="624" font-size="12.5" fill="#6f6b65" text-anchor="middle">Dump gzip de la base</text>
+  <text x="668" y="642" font-size="12.5" fill="#6f6b65" text-anchor="middle">AVANT d'arrêter quoi que</text>
+  <text x="668" y="660" font-size="12.5" fill="#6f6b65" text-anchor="middle">ce soit</text>
+
+  <line x1="780" y1="625" x2="792" y2="625" stroke="#7a9b80" stroke-width="2"/>
+  <polygon points="798,625 788,620 788,630" fill="#7a9b80"/>
+
+  <rect x="800" y="570" width="216" height="110" rx="10" fill="#ffffff" stroke="#bcd8c0" stroke-width="1.5"/>
+  <text x="908" y="600" font-size="14.5" font-weight="700" fill="#1a1816" text-anchor="middle">Bascule</text>
+  <text x="908" y="624" font-size="12.5" fill="#6f6b65" text-anchor="middle">docker compose down,</text>
+  <text x="908" y="642" font-size="12.5" fill="#6f6b65" text-anchor="middle">puis up --build -d</text>
+  <text x="908" y="660" font-size="12.5" fill="#6f6b65" text-anchor="middle">--wait (timeout 300 s)</text>
+
+  <line x1="1020" y1="625" x2="1032" y2="625" stroke="#7a9b80" stroke-width="2"/>
+  <polygon points="1038,625 1028,620 1028,630" fill="#7a9b80"/>
+
+  <rect x="1040" y="570" width="216" height="110" rx="10" fill="#ffffff" stroke="#bcd8c0" stroke-width="1.5"/>
+  <text x="1148" y="600" font-size="14.5" font-weight="700" fill="#1a1816" text-anchor="middle">Contrôle de santé</text>
+  <text x="1148" y="624" font-size="12.5" fill="#6f6b65" text-anchor="middle">Le conteneur doit répondre</text>
+  <text x="1148" y="642" font-size="12.5" fill="#6f6b65" text-anchor="middle">sur /health, sinon la</text>
+  <text x="1148" y="660" font-size="12.5" fill="#6f6b65" text-anchor="middle">commande échoue</text>
+
+  <line x1="1260" y1="625" x2="1272" y2="625" stroke="#7a9b80" stroke-width="2"/>
+  <polygon points="1278,625 1268,620 1268,630" fill="#7a9b80"/>
+
+  <rect x="1280" y="570" width="216" height="110" rx="10" fill="#fdeef1" stroke="#edc3cb" stroke-width="1.5"/>
+  <text x="1388" y="600" font-size="14.5" font-weight="700" fill="#1a1816" text-anchor="middle">Verdict du pipeline</text>
+  <text x="1388" y="624" font-size="12.5" fill="#6f6b65" text-anchor="middle">Un démarrage cassé fait</text>
+  <text x="1388" y="642" font-size="12.5" fill="#6f6b65" text-anchor="middle">échouer le workflow au lieu</text>
+  <text x="1388" y="660" font-size="12.5" fill="#6f6b65" text-anchor="middle">de passer inaperçu</text>
+
+  <!-- ===== Bas : environnements, secrets, limites ===== -->
+  <rect x="60" y="740" width="470" height="165" rx="14" fill="#f5f4f0" stroke="#d9d5cf" stroke-width="1.5"/>
+  <text x="82" y="772" font-size="17" font-weight="700" fill="#c8102e">Cinq environnements</text>
+  <text x="82" y="800" font-size="14" fill="#1a1816"><tspan font-weight="700">deva · devb · devc</tspan> — bacs à sable de l'équipe,</text>
+  <text x="82" y="820" font-size="14" fill="#1a1816">un par développeur, pour itérer vite</text>
+  <text x="82" y="848" font-size="14" fill="#1a1816"><tspan font-weight="700">staging</tspan> — automatique, image de la prod</text>
+  <text x="82" y="876" font-size="14" fill="#1a1816"><tspan font-weight="700">production</tspan> — merge sur main ou lancement manuel</text>
+
+  <rect x="565" y="740" width="470" height="165" rx="14" fill="#f5f4f0" stroke="#d9d5cf" stroke-width="1.5"/>
+  <text x="587" y="772" font-size="17" font-weight="700" fill="#c8102e">Secrets à deux niveaux</text>
+  <text x="587" y="800" font-size="14" fill="#1a1816"><tspan font-weight="700">Dépôt</tspan> — hôte, utilisateur, port, clé SSH et</text>
+  <text x="587" y="820" font-size="14" fill="#1a1816">empreinte de la machine : partagés</text>
+  <text x="587" y="848" font-size="14" fill="#1a1816"><tspan font-weight="700">Environnement</tspan> — chemin de déploiement propre</text>
+  <text x="587" y="868" font-size="14" fill="#1a1816">à chaque cible (staging ≠ production)</text>
+  <text x="587" y="893" font-size="13" fill="#6f6b65">Aucune adresse ni identifiant en clair dans le dépôt</text>
+
+  <rect x="1070" y="740" width="470" height="165" rx="14" fill="#f5f4f0" stroke="#d9d5cf" stroke-width="1.5"/>
+  <text x="1092" y="772" font-size="17" font-weight="700" fill="#c8102e">Ce qui reste à améliorer</text>
+  <text x="1092" y="800" font-size="14" fill="#1a1816">Pas de retour arrière automatique : on relance</text>
+  <text x="1092" y="820" font-size="14" fill="#1a1816">le déploiement depuis un commit antérieur</text>
+  <text x="1092" y="848" font-size="14" fill="#1a1816">Courte coupure au redémarrage (down puis up)</text>
+  <text x="1092" y="876" font-size="14" fill="#1a1816">Landing page pas encore publiée par le pipeline</text>
+</svg>
