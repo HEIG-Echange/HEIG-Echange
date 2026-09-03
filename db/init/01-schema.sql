@@ -39,6 +39,9 @@ CREATE TABLE users (
   display_name   VARCHAR(120)    NOT NULL,
   avatar_url     VARCHAR(512)        NULL DEFAULT NULL,
   password_hash  VARCHAR(255)    NOT NULL,                    -- hash bcrypt, jamais en clair
+  email_verified_at TIMESTAMP        NULL DEFAULT NULL,        -- confirmation par code recu par email
+  verification_code VARCHAR(8)       NULL DEFAULT NULL,
+  verification_code_expires_at TIMESTAMP NULL DEFAULT NULL,
   role           ENUM('user','admin') NOT NULL DEFAULT 'user',
   is_blocked     BOOLEAN         NOT NULL DEFAULT FALSE,     -- req 9 : blocage
   blocked_reason VARCHAR(255)        NULL DEFAULT NULL,
@@ -114,6 +117,27 @@ CREATE TABLE listing_photos (
   KEY idx_photos_listing (listing_id, position),
   CONSTRAINT fk_photos_listing
     FOREIGN KEY (listing_id) REFERENCES listings(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------------
+-- listing_interests — un etudiant se declare interesse par une annonce
+--
+-- Case a cocher "je suis interesse" sur une annonce : un enregistrement par
+-- (listing_id, user_id), pas un log append-only (UNIQUE KEY ci-dessous) — on
+-- peut donc s'inscrire puis se desinscrire sans accumuler de doublons.
+-- ---------------------------------------------------------------------------
+CREATE TABLE listing_interests (
+  id         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  listing_id BIGINT UNSIGNED NOT NULL,
+  user_id    BIGINT UNSIGNED NOT NULL,
+  created_at TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_interests_listing_user (listing_id, user_id),
+  KEY idx_interests_user (user_id),
+  CONSTRAINT fk_interests_listing
+    FOREIGN KEY (listing_id) REFERENCES listings(id) ON DELETE CASCADE,
+  CONSTRAINT fk_interests_user
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------------

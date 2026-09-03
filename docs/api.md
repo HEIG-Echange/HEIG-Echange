@@ -20,11 +20,16 @@ Config publique consommee par le frontend.
 
 L'authentification actuelle est **email + mot de passe** (bcrypt), via
 `express-session` : un cookie de session (`connect.sid`) est posé au
-register/login et doit être renvoyé à chaque requête protégée. 
+login et doit être renvoyé à chaque requête protégée.
+
+Un compte fraîchement créé n'est **pas** utilisable immédiatement : l'adresse
+email doit d'abord être vérifiée par un code reçu par email (voir
+`POST /auth/verify-email` ci-dessous). `POST /auth/login` refuse la connexion
+tant que ce n'est pas fait.
 
 ### `POST /auth/register`
 
-Crée un compte et ouvre la session.
+Crée un compte (non vérifié) et envoie un code de vérification par email.**N'ouvre pass la session**
 
 | Champ | Type | Requis | Contrainte |
 |---|---|---|---|
@@ -32,12 +37,46 @@ Crée un compte et ouvre la session.
 | `displayName` | string | oui | non vide |
 | `password` | string | oui | 8 caractères minimum |
 
-- `201` → `{ id, email, displayName, role: "user" }`
+- `201` → `{ id, email, displayName, role: "user", emailVerified: false, message }`
+  (+ `devVerificationCode` — voir encadré ci-dessous)
 - `400` - champs manquants/invalides
 - `403` - domaine d'email non autorisé
 - `409` - un compte existe déjà pour cet email
 
 Les comptes admin doivent être crée en base de données.
+
+> **`devVerificationCode` (dev uniquement).** Quand `NODE_ENV !== "production"`
+> la réponse inclut aussi le code de vérification en clair,
+> pour pouvoir tester sans accéder à une vraie boîte mail.
+
+### `POST /auth/verify-email`
+
+Confirme l'adresse email avec le code reçu (8 chiffres, valable 15 minutes,
+usage unique).
+
+| Champ | Type | Requis |
+|---|---|---|
+| `email` | string | oui |
+| `code` | string | oui |
+
+- `200` → `{ emailVerified: true }`
+- `400` - champs manquants, ou code invalide/expiré
+- `404` - aucun compte pour cet email
+- `409` - cet email est déjà vérifié
+
+### `POST /auth/resend-code`
+
+Régénère et renvoie un code de vérification (ex. code perdu ou expiré).
+
+| Champ | Type | Requis |
+|---|---|---|
+| `email` | string | oui |
+
+- `200` → `{ message }` (+ `devVerificationCode` en dev, même règle que
+  `POST /auth/register`)
+- `400` - `email` manquant
+- `404` - aucun compte pour cet email
+- `409` - cet email est déjà vérifié
 
 ### `POST /auth/login`
 
@@ -49,7 +88,9 @@ Les comptes admin doivent être crée en base de données.
 - `200` → `{ id, email, displayName, role }`
 - `400` - champs manquants
 - `401` - mot de passe incorrect
-- `403` - compte bloqué (`is_blocked`)
+- `403` - email pas encore vérifié (`code: "EMAIL_NOT_VERIFIED"`, voir
+  `POST /auth/verify-email`/`POST /auth/resend-code`) ou compte bloqué
+  (`is_blocked`)
 - `404` - aucun compte pour cet email
 
 ### `POST /auth/logout`
@@ -108,10 +149,22 @@ Crée une annonce, `owner_id` vient de la session.
 | `description` | string | oui |
 | `itemCondition` | `"neuf" \| "tres_bon" \| "bon" \| "usage" \| "a_reparer"` | oui |
 | `location` | string \| null | non - lieu libre (texte) |
+| `isPriority` | boolean | non - restreint l'annonce à un ou plusieurs groupes d'amis (voir encadré) |
+| `priorityGroupIds` | number[] | **requis si `isPriority: true`** - ids de groupes dont **toi** (le créateur) es propriétaire (`POST /friends-groups`) |
+| `priorityDurationHours` | number | non - durée de la restriction, défaut **48h** à partir de la création |
 
-- `201` → `{ id, ownerId, categoryId, title, description, itemCondition, location, status: "available" }`
-- `400` - champs manquants/invalides, ou `categoryId` inexistant
+- `201` → `{ id, ownerId, categoryId, title, description, itemCondition, location, status: "available", isPriority, endPriorityAt, priorityGroupIds? }`
+- `400` - champs manquants/invalides, `categoryId` inexistant, `isPriority: true` sans `priorityGroupIds`, ou un `priorityGroupIds` qui ne t'appartient pas
 - `401` - pas connecté
+
+> **Annonces restreintes ("priority groups").** Si `isPriority` est actif,
+> l'annonce n'apparaît dans `GET /listings` / `GET /listings/:id` que pour :
+> son propriétaire, un admin, ou un membre d'au moins un des groupes listés
+> dans `priorityGroupIds` (voir `POST /friends-groups/:id/members`). Passé
+> `endPriorityAt`, la restriction se lève **automatiquement** (calculée à
+> chaque lecture, pas de tâche planifiée). Pour un visiteur non autorisé,
+> `GET /listings/:id` et `POST/GET/DELETE /listings/:id/interest` renvoient
+> `404` — jamais `403` — pour ne pas révéler que l'annonce existe.
 
 ### `PATCH /listings/:id` - connecté, propriétaire ou admin
 
@@ -119,9 +172,16 @@ Mise à jour partielle : mêmes champs que la création (`categoryId`,
 `title`, `description`, `itemCondition`, `location`), tous optionnels mais au
 moins un requis. `location` accepte `null` pour effacer le lieu.
 
+`isPriority`/`priorityGroupIds`/`priorityDurationHours` se modifient en bloc
+(mêmes règles que `POST /listings`) : fournir `isPriority: false` lève
+entièrement la restriction (et vide `priorityGroupIds`) ; fournir
+`isPriority: true` recalcule `endPriorityAt` à partir de **maintenant** et
+remplace la liste de groupes autorisés.
+
 - `200` → l'annonce mise à jour (même forme que `GET /listings/:id` sans le
   tableau `photos`)
-- `400` - aucun champ fourni, champ invalide, ou `categoryId` inexistant
+- `400` - aucun champ fourni, champ invalide, `categoryId` inexistant, ou
+  `priorityGroupIds` invalide
 - `401` - pas connecté
 - `403` - ni propriétaire ni admin
 - `404` - annonce introuvable (ou déjà supprimée)
@@ -139,7 +199,8 @@ combinables :
 
 - `200` → tableau d'annonces, `photoUrl` = première photo (vignette) ou
   `null`, `location` (lieu libre ou `null`), triées par date de création
-  décroissante
+  décroissante. N'inclut pas les annonces restreintes ("priority groups",
+  voir `POST /listings`) auxquelles tu n'as pas accès.
 - `400` - `categoryId`/`ownerId` fourni mais non numérique
 
 > **Confidentialité des contacts.** `ownerName` et `ownerEmail` ne sont
@@ -152,9 +213,54 @@ combinables :
 Fiche détail, avec le tableau complet des photos. **Accessible sans être
 connecté** (mêmes règles de masquage `ownerName`/`ownerEmail` que ci-dessus).
 
-- `200` → annonce (+ `location`, `ownerEmail`) + `photos: [{ id, url, position }]`
+- `200` → annonce (+ `location`, `ownerEmail`, `isPriority`, `endPriorityAt`)
+  + `photos: [{ id, url, position }]`. Si le visiteur connecté en est le
+  propriétaire, inclut aussi `priorityGroupIds`.
 - `400` - id non numérique
-- `404` - annonce introuvable
+- `404` - annonce introuvable, **ou restreinte et inaccessible** au visiteur
+  (voir encadré sous `POST /listings`)
+
+### `GET /listings/interested` - connecté
+
+Ids des annonces (encore actives) sur lesquelles l'utilisateur connecté a
+manifesté son intérêt.
+
+- `200` → `[listingId, ...]` (tableau de nombres, triés par date d'inscription
+  décroissante)
+- `401` - pas connecté
+
+### `GET /listings/:id/interest` - connecté
+
+État de l'intérêt du visiteur connecté pour cette annonce.
+Renvoi true si l'utilisateur a deja marque son interet pr cet article
+
+- `200` → `{ interested: boolean }`
+- `400` - id non numérique
+- `401` - pas connecté
+- `404` - annonce introuvable, ou restreinte et inaccessible (voir encadré
+  sous `POST /listings`)
+
+### `POST /listings/:id/interest` - connecté
+
+Marquer l'utilisateur comme interessé par l'article. À la première inscription
+(`201`), le propriétaire reçoit un email contenant l'adresse de la personne
+intéressée. Pas de nouvel email en cas de clic répété (`200`).
+
+- `201` → `{ interested: true }` (première fois)
+- `200` → `{ interested: true }` (déjà enregistré)
+- `400` - id non numérique, ou tentative sur sa propre annonce
+- `401` - pas connecté
+- `404` - annonce introuvable, ou restreinte et inaccessible
+
+### `DELETE /listings/:id/interest` - connecté
+
+Enleve l'interet de l'utilisateur
+
+- `204`, pas de body
+- `400` - id non numérique
+- `401` - pas connecté
+- `404` - aucun intérêt enregistré pour cette annonce (par ce compte), ou
+  annonce restreinte et inaccessible
 
 ### `POST /listings/:id/photos` - connecté, propriétaire ou admin
 
@@ -196,6 +302,102 @@ dans `moderation_logs` (`action: "delete_listing"`, `details: { reason }`).
 - `401` - pas connecté
 - `403` - ni propriétaire ni admin
 - `404` - annonce introuvable
+
+---
+
+## Groupes d'amis - `/friends-groups`
+
+Groupes définis par un utilisateur, utilisés pour restreindre temporairement
+une annonce à un cercle choisi (voir `isPriority` sous `POST /listings`).
+Toutes les routes ci-dessous exigent d'être connecté ; les mutations sont
+réservées au **propriétaire du groupe** (celui qui l'a créé).
+
+### `POST /friends-groups` - connecté
+
+Crée un groupe, appartenant à l'appelant. Un groupe ne peut pas être créé
+vide : au moins un membre est requis dès la création.
+
+| Champ | Type | Requis |
+|---|---|---|
+| `name` | string | oui |
+| `memberIds` | number[] | oui - non vide, chaque id doit exister |
+
+- `201` → `{ id, name, ownerId, memberIds }`
+- `400` - `name` manquant/vide, `memberIds` manquant/vide, ou un id de
+  `memberIds` introuvable
+- `401` - pas connecté
+
+### `GET /friends-groups` - connecté
+
+Mes groupes (dont je suis propriétaire).
+
+- `200` → `[{ id, name, ownerId, createdAt }, ...]`, triés par date de
+  création décroissante
+- `401` - pas connecté
+
+### `PATCH /friends-groups/:id` - connecté, propriétaire
+
+Renomme le groupe.
+
+| Champ | Type | Requis |
+|---|---|---|
+| `name` | string | oui |
+
+- `200` → `{ id, name, ownerId }`
+- `400` - id non numérique, ou `name` manquant/vide
+- `401` - pas connecté
+- `403` - pas le propriétaire du groupe
+- `404` - groupe introuvable
+
+### `DELETE /friends-groups/:id` - connecté, propriétaire
+
+Supprime le groupe (soft delete). N'affecte pas les annonces déjà publiées
+avec ce groupe en priorité — les lignes existantes restent en base pour
+l'historique, mais ce groupe ne peut plus être choisi pour de nouvelles
+annonces.
+
+- `204`, pas de body
+- `400` - id non numérique
+- `401` - pas connecté
+- `403` - pas le propriétaire du groupe
+- `404` - groupe introuvable
+
+### `GET /friends-groups/:id/members` - connecté, propriétaire
+
+Liste des membres du groupe.
+
+- `200` → `[{ id, displayName, email, addedAt }, ...]`, triés par date
+  d'ajout croissante
+- `400` - id non numérique
+- `401` - pas connecté
+- `403` - pas le propriétaire du groupe
+- `404` - groupe introuvable
+
+### `POST /friends-groups/:id/members` - connecté, propriétaire
+
+Ajoute un membre par id utilisateur. Idempotent : ajouter deux fois la même
+personne ne crée pas de doublon et ne renvoie pas d'erreur.
+
+| Champ | Type | Requis |
+|---|---|---|
+| `userId` | number | oui |
+
+- `201` → `{ friendsGroupId, userId }` (ajouté pour la première fois)
+- `200` → `{ friendsGroupId, userId }` (déjà membre)
+- `400` - id(s) non numérique(s)
+- `401` - pas connecté
+- `403` - pas le propriétaire du groupe
+- `404` - groupe introuvable, ou `userId` introuvable
+
+### `DELETE /friends-groups/:id/members/:userId` - connecté, propriétaire
+
+Retire un membre du groupe.
+
+- `204`, pas de body
+- `400` - id(s) non numérique(s)
+- `401` - pas connecté
+- `403` - pas le propriétaire du groupe
+- `404` - groupe introuvable, ou cette personne n'en est pas membre
 
 ---
 

@@ -8,6 +8,7 @@ import { categoriesRouter } from "./routes/categories";
 import { reportsRouter } from "./routes/reports";
 import { adminRouter } from "./routes/admin";
 import { usersRouter } from "./routes/users";
+import { friendsGroupsRouter } from "./routes/friendsGroups";
 import { PUBLIC_BASE_URL, UPLOAD_DIR } from "./config";
 
 export const app = express();
@@ -44,6 +45,7 @@ app.use("/categories", categoriesRouter);
 app.use("/reports", reportsRouter);
 app.use("/admin", adminRouter);
 app.use("/users", usersRouter);
+app.use("/friends-groups", friendsGroupsRouter);
 
 // Images uploadees par les utilisateurs (stockage disque / volume Docker).
 app.use("/uploads", express.static(UPLOAD_DIR));
