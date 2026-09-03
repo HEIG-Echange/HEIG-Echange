@@ -45,6 +45,20 @@ pas des requetes a envoyer une par une.
 3. Bruno execute les requetes dans l'ordre  et affiche le
    resultat de chaque `test()` (vert/rouge) avec le detail des assertions.
 
+Note CI/CD:
+La CI lance aussi exactement les avec le même environnement. 
+Le rapport de test est produit.
+Echec de tests ne bloque pas le script CI car erreurs sont indicatives.
+Le rapport JUnit `bruno-report.xml` est publie comme artefact GitHub Actions
+
+En résumé, la CI lance, comme ce qui est utilisé en local pour faire tourner les tests:
+```bash
+cp .env.example .env
+docker compose -f compose.yaml -f compose.dev.yaml up --build -d --wait
+npm run test:bruno
+docker compose -f compose.yaml -f compose.dev.yaml down -v
+```
+
 
 
 ## Structure
@@ -54,7 +68,8 @@ pas des requetes a envoyer une par une.
 - `listings/` — creation, liste, detail, modification d'annonces
 - `reports/` — signalement d'une annonce
 - `admin/` — moderation : signalements, blocage/deblocage, historique,
-  annonces (y compris supprimees)
+  annonces (y compris supprimees), et reglages de l'analyse IA
+  (`Get`/`Update AI Settings`)
 - `test-suite/` — suite automatisee (inscription, login correct/incorrect,
   compte, logout, domaine refuse)
 - `environments/Local.bru` — `baseUrl` pour l'API locale

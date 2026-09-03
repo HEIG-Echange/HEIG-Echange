@@ -1,0 +1,21 @@
+meta {
+  name: 20 Create Report Missing Fields (Flow)
+  type: http
+  seq: 20
+}
+
+post {
+  url: {{baseUrl}}/reports
+  body: json
+  auth: none
+}
+
+body:json {
+  {}
+}
+
+tests {
+  test("renvoie 400 quand listingId/reason manquent", function () {
+    expect(res.getStatus()).to.equal(400);
+  });
+}

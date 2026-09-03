@@ -1,0 +1,37 @@
+meta {
+  name: 14 Create Listing (Flow)
+  type: http
+  seq: 14
+}
+
+post {
+  url: {{baseUrl}}/listings
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "categoryId": 1,
+    "title": "Objet test suite",
+    "description": "Cree par la suite automatisee, sera modifie puis supprime par un admin.",
+    "itemCondition": "bon"
+  }
+}
+
+tests {
+  test("renvoie 201", function () {
+    expect(res.getStatus()).to.equal(201);
+  });
+
+  test("renvoie l'annonce creee", function () {
+    expect(res.getBody().title).to.equal("Objet test suite");
+    expect(res.getBody().status).to.equal("available");
+  });
+}
+
+script:post-response {
+  if (res.getBody() && res.getBody().id) {
+    bru.setVar("flowListingId", res.getBody().id);
+  }
+}

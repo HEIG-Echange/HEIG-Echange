@@ -1,0 +1,26 @@
+meta {
+  name: Suspended Accounts
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/admin/suspended-accounts
+  body: none
+  auth: none
+}
+
+docs {
+  Comptes dont l'adresse email n'est pas (ou plus) confirmee.
+
+  emailStatus vaut :
+    - "unverified" : inscription jamais confirmee
+    - "expired"    : confirmation vieille de plus de 6 mois
+
+  Dans les deux cas le compte est suspendu : connexion refusee et annonces
+  masquees des listes publiques. hiddenListings indique combien d'annonces
+  sont ainsi invisibles. Rien n'est supprime : elles reapparaissent des que
+  l'utilisateur reconfirme son adresse.
+
+  Reserve aux administrateurs.
+}

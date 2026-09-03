@@ -1,8 +1,9 @@
 # Déploiement
 
-Le déploiement se fait par SSH sur une machine distante. Le pipeline envoie les
-sources du commit, puis lance `docker compose up --build -d` dans le dossier de
-l'environnement visé. La machine construit donc l'image elle-même.
+
+Le déploiement se fait par SSH sur une machine distante. Le pipeline envoie les sources du commit, puis lance `docker compose up --build -d` dans le dossier de l'environnement visé. La machine construit l'image elle-même.
+
+
 
 ## Vue d'ensemble
 
@@ -25,18 +26,31 @@ niveaux se combinent :
 - **Secrets de repository** : partagés par staging et production. C'est le bon
   niveau tant que les deux environnements sont sur la **même machine**.
 - **Secrets d'environnement** (`Settings > Environments > staging|production`) :
-  propres à un environnement, et **prioritaires** sur un secret de repository de
-  même nom (car le job `deploy` déclare `environment:`).
+  pour chaque environnement. (Prioritaires sur clefs-valeurs des secrets de repository si même nom).
 
-### Secrets de repository (partagés)
+### Secrets de repository (partagés entre environnements)
+
+Initialement, la machine serveur était hébergée dans un appartement (Raspberry Pi). Une règle de Firewall était ouverte. Pour des soucis de sécurité, les valeurs qui permettraient d identifier l IP, le port, le user ont été mis en secret.
 
 | Secret | Requis | Défaut | Rôle |
 |---|---|---|---|
 | `DEPLOY_HOST` | oui | — | nom d'hôte ou IP de la machine |
 | `DEPLOY_USER` | oui | — | utilisateur SSH, membre du groupe `docker` |
 | `DEPLOY_PORT` | non | `22` | port SSH |
-| `DEPLOY_SSH_PRIVATE_KEY` | oui | — | clé privée de déploiement, **sans passphrase** |
+| `DEPLOY_SSH_PRIVATE_KEY` | oui | — | clé privée de déploiement **sans passphrase** (sinon pas automatisable dans le pipeline). à générer puis à attribuer à Github. Ajouter la clef publique dans le fichier `~/.ssh/authorized_keys` du serveur cible. |
 | `DEPLOY_SSH_KNOWN_HOSTS` | oui | — | clé publique de l'hôte, pour vérifier la machine |
+
+Exemple de valeur pour `DEPLOY_SSH_KNOWN_HOSTS` (copier la valeur dans une variable d'environnement GitHub). Pour connaître la valeur à mettre dans la variable d environnement, vous pouvez 1 vous connecter en ssh depuis une machine en 4G (pour simuler la CD github qui passe par internet) vers la machine cible, accepter le fingerprinting, puis récupérer les lignes ajoutées dans le fichier `~/.ssh/known_hosts` après cette connexion, qui sont en lien avec la machine cible.
+
+Exemple:
+
+```bash
+vps123808.serveur-vps.net ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEIHw5CuM3zAHpBLUhfrYJDb37GsTvfi8v2o1H4mLQ6B
+vps123808.serveur-vps.net ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDnMmUkOYstWJQP6hOYbZWvvOkiiHVSsd1xgaW9Ev3baRg+/BvTaIWcxqvF5DdUlEUPOWKsIimedJw/5d8oS5sVuFUnqjoYMwlentRCtRHEYjzKQaWeGsXNsZhQjrhf75Km4DdaWmB+c4GFMiP9/kZZJJUlLzkA9xysm99cny2NAua2itWG7fa6rwNRoMzI9CJlZcstXCktQ7yKttsE/ANcGOPKiJe6TIg97x4xdcNqfBxbDvl62o2PHHQnlYKSD8CbrmB6DiKVz5Hq3qAWRHsCkONDUIwCJbDcVmZQlq/TxmKyK++b09VvV8Ww+b71JLFB5wc6BewbhJbODYJ3vrmtSiKpBcSejeyEKMhA6k2CKRJYaXysQyhXDbSdleHokS3HqwxM6pKz9Z0z19yhfTkOg6VdIfDknw4D/No2UBkcAs/pVbK02aGe/tYqx24/5G/dFYRixKTu87LDUIuvHzOr105Qw7rVq6O4onxZ/rhK4dFdOSXoeSDJvROFzK1J92U=
+vps123808.serveur-vps.net ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBKBdQdGE2gMlnwwJ2b8bQ1iivbHPqqJps6rHq4hDvT4gWxUXCafsgZgwmp2sQRfsqE7gUV+mQPOYgsMFipJJcm0=
+```
+
+
 
 ### Secret d'environnement (une valeur par environnement)
 
@@ -116,6 +130,18 @@ une même machine partageraient le même nom de projet Compose et se
 remplaceraient mutuellement. `APP_PORT` doit lui aussi différer, sinon le second
 déploiement échoue sur un conflit de port.
 
+
+Pour la CI/CD créer une fois le répertoire de sauvegarde et vérifier qu'il est inscriptible par `heigdeploy` :
+
+```bash
+mkdir -p /home/heigdeploy/heig/_backups
+chown heigdeploy:heigdeploy /home/heigdeploy/heig/_backups
+```
+
+`DB_BACKUP_PATH` est obligatoire pour la CI/CD. Avant chaque arrêt de la stack, la CD écrit un dump MariaDB compressé nommé avec la timestamp.
+(exemple: `heig_echange-20260903-143916Z.sql.gz`)
+
+
 ## Ce que fait le déploiement
 
 1. `git archive` de l'arbre du commit — pas de fichier local parasite, pas
@@ -127,12 +153,10 @@ déploiement échoue sur un conflit de port.
    Ce n'est pas gênant pour un build Docker, qui ne lit que ce que le
    `Dockerfile` copie explicitement, mais en cas de doute il suffit de vider le
    dossier en gardant le `.env` et de relancer le workflow.
-4. `docker compose up --build -d --remove-orphans --wait`. Le `--wait` attend le
-   healthcheck du conteneur : un démarrage cassé fait échouer le pipeline au
-   lieu de passer inaperçu. En cas d'échec, `docker compose ps` et les 100
-   dernières lignes de logs sont affichées dans le run.
-5. `docker image prune` des images de plus d'une semaine, pour que les builds
-   successifs ne remplissent pas le disque.
+4. sauvegarde compressée de la DB MariaDB dans `DB_BACKUP_PATH`, puis 
+   `docker compose up --no-build -d --remove-orphans --wait`.
+   Le `--wait` attend le healthcheck du conteneur : un démarrage cassé fait échouer le pipeline (visibilité en cas de soucis).
+5. `docker image prune` des images de plus d'une semaine, pour que les builds ne remplissent pas le disque.
 
 Le commit déployé est tracé dans le fichier `.release` du dossier, et dans les
 labels OCI de l'image (`org.opencontainers.image.revision`) :
@@ -151,6 +175,7 @@ Dans le `.env` de **chaque** clone :
 APP_PORT=3001                          # doit différer entre les instances
 PHPMYADMIN_PORT=8083                   # idem, si le profil "tools" est utilisé
 COMPOSE_PROJECT_NAME=heig-echange-a     # doit différer entre les instances
+DB_BACKUP_PATH=/home/heigdeploy/heig/_backups
 ```
 
 `COMPOSE_PROJECT_NAME` est le point le plus facile à oublier : sans lui,
@@ -169,32 +194,10 @@ jamais publiée sur la machine hôte (pas de section `ports` sur le service
 
 ### Accès à phpMyAdmin depuis une autre machine
 
-Le service `phpmyadmin` (profil `tools`, à lancer avec
-`docker compose --profile tools up -d`) est publié sur `0.0.0.0` par défaut,
-donc joignable depuis une autre machine du réseau à
-`http://<ip-de-la-machine>:${PHPMYADMIN_PORT}`. C'est volontaire pour permettre
-l'administration à distance, mais phpMyAdmin n'est pas servi en HTTPS ici :
-ne l'exposer que sur un réseau de confiance (LAN privé, VPN), jamais
-directement sur Internet. Pour revenir à un accès local uniquement, définir
-`PHPMYADMIN_BIND_ADDRESS=127.0.0.1` dans le `.env` concerné.
+Le service `phpmyadmin` (profil `tools`, à lancer avec `docker compose --profile tools up -d`) est publié sur `0.0.0.0` par défaut (i.e. joignable depuis une autre machine du réseau), pour nous permettre d administrer à distance la BDD.
 
+En production, pour plus de sécurité, on limiterait par exemple l accès depuis la machine serveur.
 
+Pour revenir à un accès local uniquement, définir`PHPMYADMIN_BIND_ADDRESS=127.0.0.1` dans le `.env` concerné.
 
-
-## Déploiement manuel d'urgence
-
-Le script distant est utilisable à la main, sans pipeline, depuis une copie des
-sources déjà présente dans le dossier :
-
-```bash
-cd /home/heigdeploy/heig/prod-pdg && IMAGE_TAG=production docker compose up --build -d --wait
-```
-
-## Retour arrière
-
-Il n'y a pas encore de rollback automatique. Pour revenir en arrière, relancer
-le workflow `CD` depuis le commit visé (onglet Actions → CD → Run workflow, en
-choisissant la branche ou le tag). C'est la principale limite du modèle actuel :
-comme l'image est construite sur la machine, il n'existe pas d'artefact
-versionné à réinstaller directement.
 

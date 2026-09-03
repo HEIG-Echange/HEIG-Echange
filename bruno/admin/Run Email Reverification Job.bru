@@ -1,0 +1,34 @@
+meta {
+  name: Run Email Reverification Job
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/admin/jobs/email-reverification
+  body: none
+  auth: none
+}
+
+docs {
+  Declenche a la main le balayage de reverification d'email.
+
+  Le meme balayage tourne automatiquement une fois par jour (src/server.ts).
+  Cette route sert a le forcer depuis un cron externe ou pour une demo, sans
+  attendre 24 h.
+
+  Pour chaque compte concerne, le job pose un nouveau code et envoie :
+    - un rappel        14 jours avant l'expiration ;
+    - une notification de suspension une fois l'expiration passee.
+
+  Il est idempotent : un deuxieme appel dans la foulee ne renvoie pas les
+  memes emails (reverification_reminder_sent_at fait office de marqueur).
+
+  Reponse : { "scanned": n, "reminders": n, "suspensions": n }
+
+  Attention : la suspension elle-meme ne depend PAS de ce job. Elle se deduit
+  de email_verified_at a chaque requete, donc elle s'applique meme si le job
+  n'a jamais tourne. Le job ne fait que prevenir les utilisateurs.
+
+  Reserve aux administrateurs.
+}

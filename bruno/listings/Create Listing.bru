@@ -15,7 +15,10 @@ body:json {
     "categoryId": {{categoryId}},
     "title": "{{title}}",
     "description": "{{description}}",
-    "itemCondition": "{{itemCondition}}"
+    "itemCondition": "{{itemCondition}}",
+    "isPriority": {{isPriority}},
+    "priorityGroupIds": [{{priorityGroupId}}],
+    "priorityDurationHours": {{priorityDurationHours}}
   }
 }
 
@@ -24,6 +27,9 @@ vars:pre-request {
   title: Calculatrice HP Prime G2
   description: Tres bon etat, peu servi
   itemCondition: tres_bon
+  isPriority: false
+  priorityGroupId: 1
+  priorityDurationHours: 48
 }
 
 script:post-response {
