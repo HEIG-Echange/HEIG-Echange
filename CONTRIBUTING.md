@@ -41,3 +41,12 @@ Les vérifications automatiques du dépôt font partie du processus de validatio
 
 ## Sécurité
 Ne jamais pousser de `.env`, de clés API ou d’identifiants.
+
+
+
+## Mails
+
+Pour l'envoi des mails, créer un compte sur https://mailer.echange.online/ pour créer une clef d'API pour l envoi des mails. Besoin d un compte SMTP.
+
+Voir les images sous `docs/images/mailer/` pour la création d une clef d'API pour la variable d environnement  `MAILER_API_KEY`.
+

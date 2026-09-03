@@ -12,10 +12,7 @@ Le déploiement se fait par SSH sur une machine distante. Le pipeline envoie les
 | `staging` | automatique au merge sur `main` | `/home/heigdeploy/heig/staging-pdg` |
 | `production` | manuel (onglet Actions → CD → Run workflow) | `/home/heigdeploy/heig/prod-pdg` |
 
-Chaîne complète : [cd.yml](../.github/workflows/cd.yml) valide le commit
-(`docker build --target verify`), puis appelle
-[deploy.yml](../.github/workflows/deploy.yml), qui pousse
-[scripts/deploy-remote.sh](../scripts/deploy-remote.sh) dans le shell distant.
+Chaîne complète : [cd.yml](../.github/workflows/cd.yml) valide le commit (`docker build --target verify`), puis appelle [deploy.yml](../.github/workflows/deploy.yml), qui déploie par SSH sur le serveur de staging/production [scripts/deploy-remote.sh](../scripts/deploy-remote.sh).
 
 ## Configuration du pipeline
 
@@ -58,21 +55,15 @@ vps123808.serveur-vps.net ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAA
 |---|---|---|
 | `DEPLOY_PATH` | dans **chaque** environnement | dossier de déploiement de cet environnement |
 
-`DEPLOY_PATH` **doit** être défini par environnement, car staging et production
-visent des dossiers différents. Ne le mettez **pas** en secret de repository :
-une valeur unique écraserait les deux environnements avec le même chemin.
+Note: `DEPLOY_PATH` **doit** être défini pour chaque environnement (production, staging)
 
-Les chemins par défaut (`/home/heigdeploy/heig/staging-pdg` et
-`/home/heigdeploy/heig/prod-pdg`) sont déjà câblés dans `cd.yml` (entrée
-`deploy_path`) : `deploy.yml` s'en sert en repli si le secret d'environnement
-`DEPLOY_PATH` est absent. Le définir explicitement reste recommandé.
-
-La vérification de l'hôte est active (`StrictHostKeyChecking yes`). Récupérer la
-ligne `known_hosts` depuis un poste de confiance :
+La vérification de l'hôte (`knownhosts`) est active. Récupérer la ligne `known_hosts` depuis un poste de confiance
 
 ```bash
 ssh-keyscan -p 22 -t ed25519 srv.exemple.ch
 ```
+
+Puis ajouter les lignes correspondantes au secret `DEPLOY_SSH_KNOWN_HOSTS`.
 
 ## Préparation d'une machine
 
@@ -178,16 +169,6 @@ COMPOSE_PROJECT_NAME=heig-echange-a     # doit différer entre les instances
 DB_BACKUP_PATH=/home/heigdeploy/heig/_backups
 ```
 
-`COMPOSE_PROJECT_NAME` est le point le plus facile à oublier : sans lui,
-Compose dérive le nom de projet du nom du **dossier**. Deux clones portant le
-même nom de dossier (ce qui est le comportement par défaut de `git clone`)
-partagent alors le même nom de projet, donc le même volume `db-data` — la 2ᵉ
-instance réutilise la base de données de la 1ʳᵉ au lieu d'en créer une neuve.
-Symptôme typique : changer `MARIADB_USER`/`MARIADB_PASSWORD`/`MARIADB_DATABASE`
-dans le `.env` de la 2ᵉ instance n'a aucun effet, car MariaDB n'applique ces
-variables qu'à la toute première initialisation d'un volume vide. Voir les
-commentaires de `.env.example` et `compose.yaml` pour le détail.
-
 `DB_HOST`/`DB_PORT` n'ont en revanche pas besoin de changer : la base n'est
 jamais publiée sur la machine hôte (pas de section `ports` sur le service
 `db`), donc aucun conflit possible entre instances sur ce port.
@@ -199,5 +180,4 @@ Le service `phpmyadmin` (profil `tools`, à lancer avec `docker compose --profil
 En production, pour plus de sécurité, on limiterait par exemple l accès depuis la machine serveur.
 
 Pour revenir à un accès local uniquement, définir`PHPMYADMIN_BIND_ADDRESS=127.0.0.1` dans le `.env` concerné.
-
 

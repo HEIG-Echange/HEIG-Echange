@@ -26,7 +26,7 @@ public/
 └── admin-ai.html            réglages IA (réservé aux administrateurs)
 ```
 
-Les briques communes (navigation, cartes, partage) vivent dans `ui.js` : chaque
+Les briques communes (navigation, cartes, partage) sont dans `ui.js` : chaque
 page pose des conteneurs vides et ce module les remplit. C'est ce qui évite que
 la navigation diverge d'une page à l'autre.
 

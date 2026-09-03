@@ -5,9 +5,9 @@
 # Complement en ligne de commande de l'export graphique de phpMyAdmin : plus
 # adapte a une sauvegarde automatisee ou avant un deploiement.
 #
-#   ./scripts/db-backup.sh                 -> backups/heig-echange-<horodatage>.sql.gz
+#   ./scripts/db-backup.sh                 -> backups/heig_echange-local-<horodatage>.sql.gz
 #   DEPLOY_ENV=staging DB_BACKUP_PATH=/srv/backups ./scripts/db-backup.sh
-#     -> /srv/backups/db_staging_YYYY-MM-DD_HHhMM.sql.gz
+#     -> /srv/backups/heig_echange-staging-YYYYMMDD-HHMMSSZ.sql.gz
 #
 #   ./scripts/db-restore.sh <fichier>      pour restaurer
 #
@@ -36,7 +36,11 @@ mkdir -p "$OUT_DIR"
 
 # Horodatage UTC, triable et sans caractere problematique pour un nom de fichier.
 STAMP="$(date -u +%Y%m%d-%H%M%SZ)"
-OUT_FILE="$OUT_DIR/${DB_NAME}-${STAMP}.sql.gz"
+
+# nommage avec l'environnement dans le nom du fichier
+# ex: heig_echange-staging-YYYYMMDD-HHMMSSZ.sql.gz
+  ENV_SLUG="$(printf '%s' "$DEPLOY_ENV" | tr -c 'A-Za-z0-9_-' '-')"
+OUT_FILE="$OUT_DIR/${DB_NAME}-${ENV_SLUG}-${STAMP}.sql.gz"
 
 echo "==> Sauvegarde de '$DB_NAME' vers $OUT_FILE"
 
