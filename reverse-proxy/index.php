@@ -69,26 +69,35 @@ function getRequestHeaders(): array
 /**
  * Construit les headers HTTP à envoyer au serveur distant.
  */
-function buildForwardHeaders(): array
+function buildForwardHeaders(bool $dropContentType = false): array
 {
     $incomingHeaders = getRequestHeaders();
     $headers = [];
 
+    // Ces headers sont gérés par cURL ou doivent être remplacés.
+    $skipped = ['host', 'content-length', 'connection', 'accept-encoding'];
+
+    // Corps multipart reconstruit : la frontière du Content-Type d'origine ne
+    // correspond plus à rien, c'est cURL qui pose le sien.
+    if ($dropContentType) {
+        $skipped[] = 'content-type';
+    }
+
     foreach ($incomingHeaders as $name => $value) {
         $lowerName = strtolower($name);
 
-        // Ces headers sont gérés par cURL ou doivent être remplacés.
-        if (in_array($lowerName, [
-            'host',
-            'content-length',
-            'connection',
-            'accept-encoding',
-        ], true)) {
+        if (in_array($lowerName, $skipped, true)) {
             continue;
         }
 
         $headers[] = $name . ': ' . $value;
     }
+
+    // Expect: 100-continue est ajouté d'office par cURL au-delà de 1 Ko de
+    // corps. Il n'apporte rien ici et ajoute un aller-retour à chaque upload
+    // de photo : on le neutralise (un header sans valeur supprime celui de
+    // cURL).
+    $headers[] = 'Expect:';
 
     // Proxy
     // Permet au serveur distant de connaître l'origine de la requête.
@@ -108,6 +117,44 @@ function buildForwardHeaders(): array
 }
 
 /**
+ * Reconstruit un corps multipart que PHP a déjà consommé.
+ *
+ * Filet de sécurité : voir la note sur enable_post_data_reading dans
+ * proxyRequest(). cURL regénère lui-même le corps (et sa frontière) à partir
+ * du tableau renvoyé, donc l'appelant doit laisser cURL poser le
+ * Content-Type.
+ *
+ * Limite connue : PHP n'expose qu'UN fichier par nom de champ quand ce nom ne
+ * se termine pas par « [] ». Un envoi de plusieurs photos en une requête perd
+ * donc tout sauf la dernière — d'où l'intérêt de désactiver complètement le
+ * parsing plutôt que de dépendre de cette reconstruction.
+ */
+function rebuildMultipartBody(): array
+{
+    $fields = [];
+
+    foreach ($_POST as $name => $value) {
+        if (is_scalar($value)) {
+            $fields[$name] = (string) $value;
+        }
+    }
+
+    foreach ($_FILES as $name => $file) {
+        if (!is_string($file['tmp_name'] ?? null) || $file['tmp_name'] === '') {
+            continue;
+        }
+
+        $fields[$name] = new CURLFile(
+            $file['tmp_name'],
+            $file['type'] ?: 'application/octet-stream',
+            $file['name'] ?: 'upload'
+        );
+    }
+
+    return $fields;
+}
+
+/**
  * Transmet la requête au serveur distant.
  */
 function proxyRequest(): void
@@ -116,6 +163,31 @@ function proxyRequest(): void
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
     $body = file_get_contents('php://input');
+
+    if ($body === false) {
+        $body = '';
+    }
+
+    // Corps multipart (upload de photo).
+    //
+    // Par défaut, PHP lit et découpe lui-même un corps multipart/form-data
+    // vers $_POST / $_FILES, et php://input est alors VIDE. Un proxy qui se
+    // contente de relayer php://input transmet donc une requête sans corps :
+    // le serveur distant répond « photo (fichier image) est requis » et
+    // l'upload d'images ne fonctionne jamais à travers ce proxy.
+    //
+    // Le vrai correctif est enable_post_data_reading=0 (voir .user.ini et
+    // .htaccess) : PHP ne touche plus au corps, php://input redevient
+    // lisible, et la requête traverse à l'identique — y compris avec
+    // plusieurs fichiers. Le code ci-dessous n'est qu'un filet de sécurité si
+    // cette directive n'a pas pu être appliquée sur l'hébergement.
+    $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
+    $isMultipart = stripos($contentType, 'multipart/form-data') !== false;
+    $rebuiltFields = null;
+
+    if ($body === '' && $isMultipart && ($_POST !== [] || $_FILES !== [])) {
+        $rebuiltFields = rebuildMultipartBody();
+    }
 
     $curl = curl_init();
 
@@ -130,7 +202,7 @@ function proxyRequest(): void
 
         CURLOPT_CUSTOMREQUEST => $method,
 
-        CURLOPT_HTTPHEADER => buildForwardHeaders(),
+        CURLOPT_HTTPHEADER => buildForwardHeaders($rebuiltFields !== null),
 
         CURLOPT_RETURNTRANSFER => false,
 
@@ -216,12 +288,13 @@ function proxyRequest(): void
     ]);
 
     // Envoie le body pour les requêtes POST, PUT, PATCH, etc.
-    if (
-        $body !== false &&
-        $body !== '' &&
-        !in_array($method, ['GET', 'HEAD'], true)
-    ) {
-        curl_setopt($curl, CURLOPT_POSTFIELDS, $body);
+    if (!in_array($method, ['GET', 'HEAD'], true)) {
+        if ($rebuiltFields !== null) {
+            // Tableau : cURL construit lui-même le corps multipart.
+            curl_setopt($curl, CURLOPT_POSTFIELDS, $rebuiltFields);
+        } elseif ($body !== '') {
+            curl_setopt($curl, CURLOPT_POSTFIELDS, $body);
+        }
     }
 
     $success = curl_exec($curl);

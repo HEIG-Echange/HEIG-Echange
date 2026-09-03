@@ -17,8 +17,6 @@ services:
       NODE_ENV: development
       # Renvoie les codes de confirmation dans les reponses de l'API, pour
       # tester sans boite mail (suite Bruno, scripts/seed_demo_data.py).
-      # Cette surcouche n'est jamais utilisee en staging/prod — voir
-      # .env.example pour la mise en garde.
       EXPOSE_VERIFICATION_CODE_FOR_TESTING: "true"
 
     # tsc doit pouvoir ecrire dans /app/dist.

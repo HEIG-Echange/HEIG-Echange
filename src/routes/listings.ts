@@ -8,8 +8,10 @@ import { pool } from "../db";
 import { requireAuth } from "../middleware/requireAuth";
 import { uploadImage } from "../upload";
 import { aiConfigured, analyzeItemPhoto } from "../ai";
+import { sendEmail } from "../mail";
 import { PUBLIC_BASE_URL, UPLOAD_DIR, absoluteUrl } from "../config";
 import { activeAccountSql } from "../auth/emailVerification";
+import { notify } from "../notifications";
 
 export const listingsRouter = Router();
 
@@ -24,7 +26,7 @@ const MIME_TO_MEDIA = {
 // ne peut pas remplir le volume d'uploads a lui seul.
 export const MAX_PHOTOS_PER_LISTING = 10;
 
-// En miroir de l'ENUM item_condition dans db/init/01-schema.sql.
+// En miroir de l'ENUM item_condition dans db/init/01-schema-v2.sql.
 const ITEM_CONDITIONS = [
   "neuf",
   "tres_bon",
@@ -66,6 +68,8 @@ interface ListingRow extends RowDataPacket {
   item_condition: ItemCondition;
   status: ListingStatus;
   location: string | null;
+  is_priority: number;
+  end_priority_at: string | null;
   photo_url: string | null;
   photo_count: number;
   created_at: string;
@@ -79,6 +83,60 @@ interface PhotoRow extends RowDataPacket {
   position: number;
 }
 
+const DEFAULT_PRIORITY_DURATION_HOURS = 48;
+
+// check si une annonce est retreinte au groupes de priorité
+function isPriorityActive(listing: {
+  is_priority: number;
+  end_priority_at: string | null;
+}): boolean {
+  return (
+    Boolean(listing.is_priority) &&
+    listing.end_priority_at !== null &&
+    new Date(listing.end_priority_at).getTime() > Date.now()
+  );
+}
+
+// check si un utilisateur est admin
+async function isAdminUser(userId: number | undefined): Promise<boolean> {
+  if (!userId) return false;
+  interface RoleRow extends RowDataPacket {
+    role: "user" | "admin";
+  }
+  const [rows] = await pool.query<RoleRow[]>(
+    "SELECT role FROM users WHERE id = ?",
+    [userId]
+  );
+  return rows[0]?.role === "admin";
+}
+
+// check si un utilisateur peut voir un listing
+async function canAccessListing(
+  listing: { id: number; owner_id: number; is_priority: number; end_priority_at: string | null },
+  userId: number | undefined
+): Promise<boolean> {
+  if (!isPriorityActive(listing)) return true;
+  // si le listing est retreint au groupes de priorite, le utilisateur doit etre connectee
+  if (!userId) return false;
+  //les proprietaires et les admin peuvent voir les annonces restreintes
+  if (listing.owner_id === userId) return true;
+  if (await isAdminUser(userId)) return true;
+
+  interface AccessRow extends RowDataPacket {
+    one: number;
+  }
+  const [rows] = await pool.query<AccessRow[]>(
+    `SELECT 1 AS one
+     FROM priority_groups pg
+     JOIN friends_group_members m ON m.friends_group_id = pg.friends_group_id
+     WHERE pg.listing_id = ? AND m.user_id = ?
+     LIMIT 1`,
+    [listing.id, userId]
+  );
+  //si l'utilisateur est mebre d'au moins un des groupes de priorite
+  return rows.length > 0;
+}
+
 // URL publique de la fiche annonce. Construite sur PUBLIC_BASE_URL et non sur
 // l'hote de la requete : un lien partage par mail ou encode dans un QR code
 // doit pointer sur le domaine reel, jamais sur le localhost du visiteur.
@@ -86,14 +144,32 @@ export function listingShareUrl(id: number): string {
   return `${PUBLIC_BASE_URL}/listing.html?id=${id}`;
 }
 
+/**
+ * Initiales d'un nom d'affichage ("Martin Dupont" -> "MD"). Seule trace du
+ * proprietaire laissee a un visiteur anonyme : assez pour distinguer deux
+ * annonces, pas assez pour identifier quelqu'un.
+ */
+export function nameInitials(name: string | null): string | null {
+  if (!name) return null;
+  const letters = name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => [...part][0]?.toUpperCase() ?? "")
+    .join("");
+  return letters || null;
+}
+
 // includeContact : n'expose le nom et l'email du proprietaire qu'aux visiteurs
-// connectes. Un visiteur anonyme voit l'annonce mais aucune info de contact
-// (req: laisser voir les annonces sans etre connecte, sans divulguer nom/email).
+// connectes. Un visiteur anonyme voit l'annonce et les initiales du donneur,
+// mais aucune donnee personnelle (req: laisser voir les annonces sans etre
+// connecte, sans divulguer nom ni email).
 function toListingJson(row: ListingRow, includeContact: boolean) {
   return {
     id: row.id,
     ownerId: row.owner_id,
     ownerName: includeContact ? row.owner_name : null,
+    ownerInitials: nameInitials(row.owner_name),
     ownerEmail: includeContact ? row.owner_email : null,
     categoryId: row.category_id,
     categorySlug: row.category_slug,
@@ -103,6 +179,8 @@ function toListingJson(row: ListingRow, includeContact: boolean) {
     itemCondition: row.item_condition,
     status: row.status,
     location: row.location,
+    isPriority: isPriorityActive(row),
+    endPriorityAt: row.end_priority_at,
     // Chemin relatif : c'est ce que consomme le frontend pour afficher.
     photoUrl: row.photo_url,
     // Meme image en absolu : pour un partage (mail, reseau social, QR) ou une
@@ -122,6 +200,7 @@ const LISTING_SELECT = `
     l.id, l.owner_id, u.display_name AS owner_name, u.email AS owner_email,
     l.category_id, c.slug AS category_slug, c.label AS category_label,
     l.title, l.description, l.item_condition, l.status, l.location,
+    l.is_priority, l.end_priority_at,
     (SELECT p.url FROM listing_photos p
        WHERE p.listing_id = l.id ORDER BY p.position ASC LIMIT 1) AS photo_url,
     (SELECT COUNT(*) FROM listing_photos p
@@ -131,6 +210,85 @@ const LISTING_SELECT = `
   LEFT JOIN users u ON u.id = l.owner_id
   LEFT JOIN categories c ON c.id = l.category_id
 `;
+
+// valide et normalise les champs de priorite envoyes par le client 
+interface PriorityInput {
+  isPriority: boolean;
+  endPriorityAt: Date | null;
+  groupIds: number[];
+}
+
+async function parsePriorityInput(
+  body: Record<string, unknown>,
+  ownerId: number,
+  res: import("express").Response
+): Promise<PriorityInput | null | undefined> {
+  const { isPriority, priorityGroupIds, priorityDurationHours } = body;
+
+  if (isPriority === undefined) {
+    return null;
+  }
+
+  if (!isPriority) {
+    return { isPriority: false, endPriorityAt: null, groupIds: [] };
+  }
+
+  // if priority is true 
+  //verifier que le utilisateur a choisit des groupes de priorite
+  if (
+    !Array.isArray(priorityGroupIds) ||
+    priorityGroupIds.length === 0 
+  ) {
+    res.status(400).json({
+      error: "priorityGroupIds est requis quand isPriority est actif",
+    });
+    return undefined;
+  }
+
+  //verifier la duree 
+  if (
+    priorityDurationHours !== undefined &&
+    (typeof priorityDurationHours !== "number" )
+  ) {
+    res.status(400).json({ error: "priorityDurationHours doit etre un nombre positif" });
+    return undefined;
+  }
+
+  // Le frontend ne propose que les groupes de l'utilisateur connecte, donc
+  // on verifie seulement que les groupes existent (et ne sont pas supprimes).
+  interface GroupIdRow extends RowDataPacket {
+    id: number;
+  }
+  const placeholders = priorityGroupIds.map(() => "?").join(",");
+  const [existingGroups] = await pool.query<GroupIdRow[]>(
+    `SELECT id FROM friends_groups WHERE id IN (${placeholders}) AND deleted_at IS NULL`,
+    priorityGroupIds
+  );
+  if (existingGroups.length !== new Set(priorityGroupIds).size) {
+    res.status(400).json({
+      error: "priorityGroupIds invalide : un ou plusieurs groupes sont introuvables",
+    });
+    return undefined;
+  }
+
+  const hours = priorityDurationHours ?? DEFAULT_PRIORITY_DURATION_HOURS;
+  return {
+    isPriority: true,
+    endPriorityAt: new Date(Date.now() + hours * 3600_000),
+    groupIds: [...new Set(priorityGroupIds)],
+  };
+}
+
+async function replacePriorityGroups(listingId: number, groupIds: number[]): Promise<void> {
+  await pool.query("DELETE FROM priority_groups WHERE listing_id = ?", [listingId]);
+  if (groupIds.length === 0) return;
+  const values = groupIds.map(() => "(?, ?)").join(", ");
+  const params = groupIds.flatMap((groupId) => [listingId, groupId]);
+  await pool.query(
+    `INSERT INTO priority_groups (listing_id, friends_group_id) VALUES ${values}`,
+    params
+  );
+}
 
 // Une annonce n'est visible publiquement que si son proprietaire est un compte
 // actif : ni supprime, ni bloque, ni suspendu faute d'avoir reconfirme son
@@ -166,11 +324,33 @@ listingsRouter.post("/", requireAuth, async (req, res) => {
   const locationValue =
     typeof location === "string" && location.trim() ? location.trim() : null;
 
+  const priority = await parsePriorityInput(
+    req.body ?? {},
+    req.session.userId as number,
+    res
+  );
+  if (priority === undefined) return; // reponse d'erreur deja envoyee
+
   try {
     const [result] = await pool.query<ResultSetHeader>(
-      "INSERT INTO listings (owner_id, category_id, title, description, item_condition, location) VALUES (?, ?, ?, ?, ?, ?)",
-      [req.session.userId, categoryId, title, description, itemCondition, locationValue]
+      `INSERT INTO listings
+         (owner_id, category_id, title, description, item_condition, location, is_priority, end_priority_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        req.session.userId,
+        categoryId,
+        title,
+        description,
+        itemCondition,
+        locationValue,
+        priority?.isPriority ? 1 : 0,
+        priority?.endPriorityAt ?? null,
+      ]
     );
+
+    if (priority?.isPriority) {
+      await replacePriorityGroups(result.insertId, priority.groupIds);
+    }
 
     res.status(201).json({
       id: result.insertId,
@@ -181,6 +361,9 @@ listingsRouter.post("/", requireAuth, async (req, res) => {
       itemCondition,
       location: locationValue,
       status: "available",
+      isPriority: priority?.isPriority ?? false,
+      endPriorityAt: priority?.endPriorityAt ?? null,
+      ...(priority?.isPriority ? { priorityGroupIds: priority.groupIds } : {}),
       photoCount: 0,
       shareUrl: listingShareUrl(result.insertId),
       qrUrl: `${PUBLIC_BASE_URL}/listings/${result.insertId}/qr`,
@@ -263,7 +446,7 @@ listingsRouter.patch("/:id", requireAuth, async (req, res) => {
   const { categoryId, title, description, itemCondition, location, status } =
     req.body ?? {};
   const sets: string[] = [];
-  const params: (string | number | null)[] = [];
+  const params: (string | number | null | Date)[] = [];
 
   if (categoryId !== undefined) {
     if (typeof categoryId !== "number" || !Number.isInteger(categoryId)) {
@@ -314,6 +497,17 @@ listingsRouter.patch("/:id", requireAuth, async (req, res) => {
     );
   }
 
+  // La restriction se modifie toujours en bloc (isPriority + groupIds) pour
+  // rester coherente : cf. parsePriorityInput. owner_id ici est celui de
+  // l'annonce (le proprietaire choisit parmi SES groupes), pas forcement
+  // req.session.userId si c'est un admin qui modifie.
+  const priority = await parsePriorityInput(req.body ?? {}, access.ownerId, res);
+  if (priority === undefined) return; // reponse d'erreur deja envoyee
+  if (priority !== null) {
+    sets.push("is_priority = ?", "end_priority_at = ?");
+    params.push(priority.isPriority ? 1 : 0, priority.endPriorityAt);
+  }
+
   if (status !== undefined) {
     if (!isListingStatus(status)) {
       res.status(400).json({
@@ -348,6 +542,10 @@ listingsRouter.patch("/:id", requireAuth, async (req, res) => {
     throw err;
   }
 
+  if (priority !== null) {
+    await replacePriorityGroups(id, priority.groupIds);
+  }
+
   const [updatedRows] = await pool.query<ListingRow[]>(
     `${LISTING_SELECT} WHERE l.id = ?`,
     [id]
@@ -360,10 +558,24 @@ listingsRouter.patch("/:id", requireAuth, async (req, res) => {
 // GET /listings — grille des annonces disponibles avec filtres
 // optionnels pour la recherche et les onglets de categorie  et pour "mes objets" sur le profil (ownerId).
 listingsRouter.get("/", async (req, res) => {
-  const { categoryId, ownerId, q } = req.query;
+  const { categoryId, ownerId, q, interested } = req.query;
 
   const where = ["l.deleted_at IS NULL", VISIBLE_OWNER];
   const params: (string | number)[] = [];
+
+  // ?interested=true : "mes favoris" (les annonces sur lesquelles j'ai clique
+  // sur l'etoile). Sans session il n'y a pas de favoris a montrer : liste vide
+  // plutot qu'une erreur, la page appelante gere l'affichage.
+  if (interested === "true") {
+    if (!req.session.userId) {
+      res.json([]);
+      return;
+    }
+    where.push(
+      "EXISTS (SELECT 1 FROM listing_interests li WHERE li.listing_id = l.id AND li.user_id = ?)"
+    );
+    params.push(req.session.userId);
+  }
 
   if (typeof categoryId === "string" && categoryId.trim()) {
     const id = Number(categoryId);
@@ -388,6 +600,24 @@ listingsRouter.get("/", async (req, res) => {
   if (typeof q === "string" && q.trim()) {
     where.push("MATCH(l.title, l.description) AGAINST (? IN NATURAL LANGUAGE MODE)");
     params.push(q.trim());
+  }
+
+  // Annonces restreintes (is_priority + end_priority_at futur) : masquees de
+  // la grille sauf pour le proprietaire, un admin, ou un membre d'un des
+  // groupes autorises. 0 en repli pour un visiteur anonyme : ne correspond a
+  // aucun id reel, donc les clauses OR ci-dessous ne le concernent jamais.
+  const viewerId = req.session.userId;
+  if (!(await isAdminUser(viewerId))) {
+    where.push(`(
+      NOT (l.is_priority = 1 AND l.end_priority_at IS NOT NULL AND l.end_priority_at > NOW())
+      OR l.owner_id = ?
+      OR EXISTS (
+        SELECT 1 FROM priority_groups pg
+        JOIN friends_group_members m ON m.friends_group_id = pg.friends_group_id
+        WHERE pg.listing_id = l.id AND m.user_id = ?
+      )
+    )`);
+    params.push(viewerId ?? 0, viewerId ?? 0);
   }
 
   const [rows] = await pool.query<ListingRow[]>(
@@ -432,7 +662,7 @@ listingsRouter.get("/:id", async (req, res) => {
 
   const listing = rows[0];
 
-  if (!listing) {
+  if (!listing || !(await canAccessListing(listing, req.session.userId))) {
     res.status(404).json({ error: "annonce introuvable" });
     return;
   }
@@ -443,6 +673,19 @@ listingsRouter.get("/:id", async (req, res) => {
   );
 
   const includeContact = Boolean(req.session.userId);
+
+  let priorityGroupIds: number[] | undefined;
+  if (req.session.userId === listing.owner_id) {
+    interface GroupIdRow extends RowDataPacket {
+      friends_group_id: number;
+    }
+    const [groupRows] = await pool.query<GroupIdRow[]>(
+      "SELECT friends_group_id FROM priority_groups WHERE listing_id = ?",
+      [id]
+    );
+    priorityGroupIds = groupRows.map((r) => r.friends_group_id);
+  }
+
   res.json({
     ...toListingJson(listing, includeContact),
     photos: photos.map((p) => ({
@@ -452,8 +695,39 @@ listingsRouter.get("/:id", async (req, res) => {
       absoluteUrl: absoluteUrl(p.url),
       position: p.position,
     })),
+    ...(priorityGroupIds ? { priorityGroupIds } : {}),
   });
 });
+
+interface PriorityCheckRow extends RowDataPacket {
+  id: number;
+  owner_id: number;
+  is_priority: number;
+  end_priority_at: string | null;
+}
+
+// Charge l'annonce (non supprimee) et verifie l'acces (restriction de
+// priorite). Ecrit une reponse 404 et renvoie null si l'annonce n'existe pas
+// OU si elle est restreinte et inaccessible a l'appelant — meme reponse dans
+// les deux cas, pour ne pas reveler l'existence d'une annonce restreinte.
+async function loadAccessibleListing(
+  id: number,
+  userId: number | undefined,
+  res: import("express").Response
+): Promise<PriorityCheckRow | null> {
+  const [rows] = await pool.query<PriorityCheckRow[]>(
+    "SELECT id, owner_id, is_priority, end_priority_at FROM listings WHERE id = ? AND deleted_at IS NULL",
+    [id]
+  );
+  const listing = rows[0];
+
+  if (!listing || !(await canAccessListing(listing, userId))) {
+    res.status(404).json({ error: "annonce introuvable" });
+    return null;
+  }
+
+  return listing;
+}
 
 // GET /listings/:id/qr — QR code (SVG) pointant vers la fiche de l'annonce.
 // Le domaine encode provient de PUBLIC_BASE_URL : scanner le code depuis un
@@ -501,6 +775,9 @@ listingsRouter.get("/:id/interest", requireAuth, async (req, res) => {
     return;
   }
 
+  const listing = await loadAccessibleListing(id, req.session.userId, res);
+  if (!listing) return;
+
   interface InterestRow extends RowDataPacket {
     id: number;
   }
@@ -512,6 +789,26 @@ listingsRouter.get("/:id/interest", requireAuth, async (req, res) => {
   res.json({ interested: rows.length > 0 });
 });
 
+// Notifie le proprietaire par email quand quelqu'un manifeste son interet.
+// N'echoue jamais l'appelant : une erreur d'envoi est juste loggee.
+async function sendInterestNotification(
+  ownerEmail: string,
+  ownerName: string,
+  interestedEmail: string,
+  interestedName: string,
+  listingTitle: string
+): Promise<void> {
+  try {
+    await sendEmail({
+      to: ownerEmail,
+      subject: `${interestedName} est interesse par "${listingTitle}"`,
+      body: `Bonjour ${ownerName},\n\n${interestedName} (${interestedEmail}) est interesse par votre annonce "${listingTitle}".\n\nContacte cette personne via Teams pour organiser la remise.`,
+    });
+  } catch (err) {
+    console.error(`Echec envoi email de notification d'interet a ${ownerEmail}`, err);
+  }
+}
+
 // POST /listings/:id/interest — un utilisateur connecte veut marquer son interet pr une annonce
 listingsRouter.post("/:id/interest", requireAuth, async (req, res) => {
   const id = Number(req.params.id);
@@ -520,19 +817,8 @@ listingsRouter.post("/:id/interest", requireAuth, async (req, res) => {
     return;
   }
 
-  interface OwnerRow extends RowDataPacket {
-    owner_id: number;
-  }
-  const [rows] = await pool.query<OwnerRow[]>(
-    "SELECT owner_id FROM listings WHERE id = ? AND deleted_at IS NULL",
-    [id]
-  );
-  const listing = rows[0];
-
-  if (!listing) {
-    res.status(404).json({ error: "annonce introuvable" });
-    return;
-  }
+  const listing = await loadAccessibleListing(id, req.session.userId, res);
+  if (!listing) return;
 
   if (listing.owner_id === req.session.userId) {
     res.status(400).json({
@@ -546,10 +832,55 @@ listingsRouter.post("/:id/interest", requireAuth, async (req, res) => {
       "INSERT INTO listing_interests (listing_id, user_id) VALUES (?, ?)",
       [id, req.session.userId]
     );
+
+    interface NotifyRow extends RowDataPacket {
+      listing_title: string;
+      owner_email: string;
+      owner_name: string;
+      interested_email: string;
+      interested_name: string;
+    }
+    const [notifyRows] = await pool.query<NotifyRow[]>(
+      `SELECT l.title AS listing_title,
+              o.email AS owner_email, o.display_name AS owner_name,
+              i.email AS interested_email, i.display_name AS interested_name
+       FROM listings l
+       JOIN users o ON o.id = l.owner_id
+       JOIN users i ON i.id = ?
+       WHERE l.id = ?`,
+      [req.session.userId, id]
+    );
+    const target = notifyRows[0];
+    if (target) {
+      await sendInterestNotification(
+        target.owner_email,
+        target.owner_name,
+        target.interested_email,
+        target.interested_name,
+        target.listing_title
+      );
+
+      // Meme information, mais dans l'app : l'email peut se perdre, la cloche
+      // reste. Le nom de la personne interessee est deja connu du
+      // proprietaire (il lui est envoye par mail pour qu'il puisse la
+      // recontacter), on ne divulgue donc rien de plus ici.
+      await notify({
+        userId: listing.owner_id,
+        type: "listing_interest",
+        title: `${target.interested_name} est interesse par « ${target.listing_title} »`,
+        body: "Contactez cette personne via Teams pour organiser la remise.",
+        link: `listing.html?id=${id}`,
+        listingId: id,
+        actorId: req.session.userId,
+      });
+    }
+
     res.status(201).json({ interested: true });
   } catch (err) {
     if ((err as { code?: string }).code === "ER_DUP_ENTRY") {
-      // Deja enregistre : on ne renvoie pas d'erreur pour un clic repete.
+      // Deja enregistre : on ne renvoie pas d'erreur pour un clic repete, et
+      // on ne renvoie pas de nouvelle notification (deja envoyee la premiere
+      // fois).
       res.status(200).json({ interested: true });
       return;
     }
@@ -564,6 +895,9 @@ listingsRouter.delete("/:id/interest", requireAuth, async (req, res) => {
     res.status(400).json({ error: "id invalide" });
     return;
   }
+
+  const listing = await loadAccessibleListing(id, req.session.userId, res);
+  if (!listing) return;
 
   const [result] = await pool.query<ResultSetHeader>(
     "DELETE FROM listing_interests WHERE listing_id = ? AND user_id = ?",
@@ -616,6 +950,17 @@ listingsRouter.delete("/:id", requireAuth, async (req, res) => {
       "INSERT INTO moderation_logs (actor_id, action, target_type, target_id, details) VALUES (?, 'delete_listing', 'listing', ?, ?)",
       [req.session.userId, id, JSON.stringify({ reason })]
     );
+
+    // Une annonce retiree par la moderation doit etre expliquee a son
+    // proprietaire, sinon elle disparait sans un mot.
+    await notify({
+      userId: access.ownerId,
+      type: "listing_removed",
+      title: "Une de vos annonces a ete retiree par la moderation",
+      body: `Motif : ${reason}`,
+      listingId: id,
+      actorId: req.session.userId,
+    });
   }
 
   res.status(204).send();

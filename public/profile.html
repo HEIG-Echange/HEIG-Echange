@@ -19,8 +19,9 @@
   <header class="flex-shrink-0 bg-white border-b border-appfg/10 sticky top-0 z-20">
     <div class="app-container py-3 flex items-center gap-3">
       <h1 class="text-lg font-extrabold">Mon profil</h1>
+      <div id="notif-bell" class="ml-auto"></div>
       <button id="logout-btn" type="button" title="Se déconnecter" aria-label="Se déconnecter"
-              class="ml-auto w-9 h-9 rounded-full bg-secondarybg flex items-center justify-center text-mutedfg hover:text-appfg transition-colors"></button>
+              class="w-9 h-9 rounded-full bg-secondarybg flex items-center justify-center text-mutedfg hover:text-appfg transition-colors"></button>
     </div>
   </header>
 
@@ -56,7 +57,12 @@
 
             <!-- Reserve aux administrateurs : demasque par profile.js selon le
                  role renvoye par /auth/me. -->
-            <div id="admin-links" class="hidden mt-3">
+            <div id="admin-links" class="hidden mt-3 space-y-2">
+              <a href="admin.html"
+                 class="flex items-center justify-between gap-2 border border-appfg/10 rounded-xl px-3 py-3 text-sm font-bold hover:border-brand/40 transition-colors">
+                <span>Modération (signalements, comptes)</span>
+                <span aria-hidden="true">›</span>
+              </a>
               <a href="admin-ai.html"
                  class="flex items-center justify-between gap-2 border border-appfg/10 rounded-xl px-3 py-3 text-sm font-bold hover:border-brand/40 transition-colors">
                 <span>Réglages de l'analyse IA</span>
@@ -83,9 +89,23 @@
               </a>
             </div>
           </section>
+          <!-- Suppression du compte (req 8). La confirmation est entierement
+               cote frontend : l'API supprime des le premier appel. -->
+          <section class="bg-white border border-red-200 rounded-2xl p-5">
+            <h2 class="text-sm font-extrabold text-red-700">Supprimer mon compte</h2>
+            <p class="text-xs text-mutedfg mt-2">
+              Votre compte et vos annonces ne seront plus visibles. Cette action est définitive.
+            </p>
+            <button id="delete-account-btn" type="button"
+                    class="w-full mt-3 text-sm font-bold border-2 border-red-200 text-red-600 rounded-xl py-2.5 hover:bg-red-50 transition-colors">
+              Supprimer mon compte
+            </button>
+            <p id="delete-account-feedback" class="text-xs text-red-600 mt-2"></p>
+          </section>
         </aside>
 
-        <section>
+        <section class="space-y-6">
+          <div>
           <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
             <h2 class="text-lg font-extrabold">Mes objets</h2>
             <div class="flex items-center gap-2">
@@ -99,6 +119,15 @@
 
           <div id="my-listings" class="listing-grid">
             <p class="col-span-full text-center text-sm text-mutedfg py-8">Chargement…</p>
+          </div>
+          </div>
+
+          <!-- Favoris : les annonces marquees d'une etoile ("interesse"). -->
+          <div>
+            <h2 class="text-lg font-extrabold mb-3">Mes favoris</h2>
+            <div id="favorites" class="listing-grid">
+              <p class="col-span-full text-center text-sm text-mutedfg py-8">Chargement…</p>
+            </div>
           </div>
         </section>
       </div>

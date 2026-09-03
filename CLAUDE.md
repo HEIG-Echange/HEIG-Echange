@@ -24,12 +24,9 @@ Le prof veut que tout le monde parle à la présentation (~5 min chacun). Rappel
 ## 3. Stack technique (état réel du repo, vérifié)
 
 - **Langage / runtime :** TypeScript, Node.js 22 (image Docker `node:22.23.2-alpine3.24`, figée par tag ET digest)
-- **Framework backend :** Express 5, connecté à MariaDB via `mysql2` (pool dans `src/db.ts`). API REST complète : auth/session, annonces, photos, catégories, intérêts, signalements, administration — voir `docs/api.md`.
+- **Framework backend :** Express 5
 - **Base de données :** MariaDB 11.4 (LTS), tourne uniquement dans Docker (pas de serveur SQL sur l'hôte), administrée via **phpMyAdmin** (jamais exposé sur Internet — accès admin via tunnel SSH)
-- **Frontend applicatif :** pages HTML statiques + modules ES servis depuis `public/` par Express (pas de framework, pas de bundler), Tailwind par CDN. Responsive mobile / tablette / desktop — voir `docs/frontend.md`.
-- **Emails :** service HTTP interne (`src/mail.ts`, variables `MAILER_*`). Sert la confirmation d'adresse à l'inscription et la reconfirmation semestrielle. Gabarits dans `src/mailTemplates.ts`.
-- **IA (optionnelle) :** analyse d'une photo d'objet pour pré-remplir le formulaire, via l'API **Hugging Face** (`src/ai.ts`, jeton `HUGGINGFACE_API_KEY`). Absent ⇒ l'endpoint répond 503, le reste fonctionne. Modèle et prompts stockés en base (`app_settings`, `src/aiSettings.ts`) et modifiables par un admin depuis `public/admin-ai.html` sans redéploiement.
-- **Tests :** Vitest + Supertest. Les tests de routes remplacent le pool MySQL par un faux pool piloté par motif SQL (`test/support/mockPool.ts`) : la CI n'a pas besoin d'une base.
+- **Tests :** Vitest + Supertest
 - **Lint :** ESLint (config flat)
 - **CI :** GitHub Actions — lint, tests, build, `npm audit`, build de l'image Docker cible `verify`
 - **CD :** GitHub Actions → déploiement **par SSH** sur une machine distante (pas de registry Docker externe pour la version actuelle) :
@@ -48,46 +45,32 @@ Le prof veut que tout le monde parle à la présentation (~5 min chacun). Rappel
 ├── Dockerfile              # multi-stage : deps / build / verify / dev / runner
 ├── compose.yaml            # exécution locale de l'image de prod
 ├── compose.dev.yaml        # rechargement à chaud pour le dev local
-├── bruno/                  # collection de requêtes API (Bruno) + suite de test
 ├── db/
-│   ├── init/01-schema.sql  # schéma MariaDB (joué UNIQUEMENT sur un volume vide)
-│   ├── init/02-seed.sql    # catégories de référence
-│   ├── migrations/00X-*.sql# à appliquer à la main sur une base déjà peuplée
+│   ├── init/01-schema-v2.sql   # schéma MariaDB courant (v2 : + friends_groups, priority_groups, listing_interests, notifications, app_settings)
+│   ├── archive/01-schema-v1.sql # ancien schéma, conservé pour référence
+│   ├── cleanup/drop-table-order.sql # ordre de drop respectant les FK
+│   ├── migrations/006-schema-v2.sql # v1 (état prod) -> v2, idempotente
+│   ├── init/02-seed.sql
 │   └── schema.mwb          # MySQL Workbench
 ├── docs/
 │   ├── description-projet.md   # objectifs, requirements, architecture, choix techniques
 │   ├── processus-travail.md    # git flow (section équipe/rôles annoncée par le README mais absente)
-│   ├── api.md                  # doc complète de l'API REST
-│   ├── frontend.md             # organisation du front, paliers responsive, densités
-│   ├── base-de-donnees.md      # schéma + phpMyAdmin + backup/restore + migrations + seed
+│   ├── base-de-donnees.md      # doc complète du schéma + accès phpMyAdmin + backup/restore
 │   ├── deploiement.md          # doc complète du pipeline SSH staging/prod
 │   ├── notes-presentation-sofia.md  # notes perso de présentation (pas un livrable d'équipe)
-│   └── mockups/README.md       # vide (les exports PNG sont dans mockup/mobile/)
+│   └── mockups/README.md       # vide
 ├── landing-page/index.html
-├── mockup/mobile/*.png         # exports de la maquette Figma (référence visuelle)
-├── public/                     # frontend applicatif servi par Express
-├── scripts/
-│   ├── {db-backup,db-restore,deploy-remote}.sh
-│   └── seed_demo_data.py       # peuple l'app avec les données de la maquette
-├── src/
-│   ├── app.ts, server.ts
-│   ├── config.ts               # PUBLIC_BASE_URL, absoluteUrl(), UPLOAD_DIR
-│   ├── db.ts, mail.ts, mailTemplates.ts, ai.ts, aiSettings.ts, upload.ts
-│   ├── auth/{validateEmail,emailVerification}.ts
-│   ├── jobs/emailReverification.ts
-│   ├── middleware/{requireAuth,requireAdmin}.ts
-│   └── routes/{auth,listings,categories,users,reports,admin}.ts
-├── test/                       # Vitest + Supertest (+ test/support/mockPool.ts)
-└── fick                        # fichier vide à la racine, résidu accidentel — à supprimer
+├── scripts/{db-backup,db-restore,deploy-remote}.sh
+├── src/{app.ts,server.ts}      # squelette Express, pas encore connecté à la DB
+├── test/app.test.ts
+└── fick                        # fichier vide à la racine, probablement un résidu accidentel — à supprimer
 ```
 
 ## 4. Base de données — résumé du schéma
 
-Voir `docs/base-de-donnees.md` pour le détail complet (accès phpMyAdmin, export/import, migrations). Tables : `users` (email `@hes-so.ch`/`@heig-vd.ch` vérifié par CHECK, rôle user/admin, soft delete, confirmation d'adresse), `categories`, `listings` (statut available/reserved/closed, recherche FULLTEXT), `listing_photos` (carrousel), `listing_interests` (« je suis intéressé »), `messages` (contact donneur↔intéressé), `reports` + `moderation_logs` (signalement et historique de modération), `app_settings` (réglages admin clé/valeur : modèle et prompts IA).
+Voir `docs/base-de-donnees.md` pour le détail complet (accès phpMyAdmin, export/import, migrations). Tables : `users` (email `@hes-so.ch`/`@heig-vd.ch` vérifié par CHECK, rôle user/admin, soft delete), `categories`, `listings` (statut available/reserved/closed, recherche FULLTEXT), `listing_photos` (carrousel), `messages` (contact donneur↔intéressé), `reports` + `moderation_logs` (signalement et historique de modération).
 
-**À savoir avant de toucher au schéma :** `db/init/*.sql` n'est joué qu'au tout premier démarrage (volume vide). Sur une base déjà peuplée, il faut écrire une migration dans `db/migrations/` **et** mettre `01-schema.sql` à jour pour les installations neuves — les deux, sinon les deux chemins divergent.
-
-**Suspension à 6 mois :** il n'existe volontairement pas de colonne `is_suspended`. L'état d'un compte est *calculé* à partir de `email_verified_at` (`src/auth/emailVerification.ts`), donc il est exact même si le job de relance n'a pas tourné. Les requêtes publiques filtrent avec le fragment `activeAccountSql()` — ne pas dupliquer cette condition à la main dans une nouvelle requête.
+**Écart à noter :** le schéma SQL est prêt et documenté, mais `src/app.ts`/`src/server.ts` ne s'y connectent pas encore (pas de driver DB dans `package.json`) — le backend applicatif (routes CRUD sur `listings`, etc.) reste à écrire.
 
 ## 5. Git flow
 
@@ -101,27 +84,20 @@ Voir `docs/base-de-donnees.md` pour le détail complet (accès phpMyAdmin, expor
 - Description du projet complète (`docs/description-projet.md`)
 - Git flow décrit
 - Landing page (statique)
-- Schéma de base de données complet, documenté, avec migrations versionnées
-- Pipeline CI (lint/test/build) et CD (déploiement SSH staging/prod avec healthcheck) fonctionnels
+- Mockups Figma (hors repo)
+- Schéma de base de données complet et documenté
+- Pipeline CI (lint/test/build) et CD (déploiement SSH staging/prod avec healthcheck) fonctionnels pour l'app elle-même
 - Dockerfile multi-stage propre (dev/verify/runner)
-- Backend Express connecté à MariaDB, API REST complète (`docs/api.md`) + collection Bruno
-- Comptes email/mot de passe (bcrypt, sessions), rôles user/admin, modération, signalements
-- Confirmation d'adresse à l'inscription **et** reconfirmation obligatoire tous les 6 mois : sans elle le compte est suspendu et ses annonces masquées
-- Annonces : CRUD, recherche FULLTEXT, filtres, photos multiples (ajout/suppression/réordonnancement), édition après publication, intérêts
-- Liens de partage (QR annonce et profil, mailto, URL d'images) tous construits sur `PUBLIC_BASE_URL`
-- Frontend applicatif responsive mobile / tablette / desktop, avec affichage grille ou compact (`docs/frontend.md`)
-- Script de peuplement `scripts/seed_demo_data.py` (données de la maquette)
-- Exports de la maquette dans `mockup/mobile/`
 
 **Reste à faire :**
+- Connecter le backend Express à MariaDB (aucun driver DB installé pour l'instant)
+- Implémenter les endpoints API (CRUD annonces, recherche/filtres, demandes, messages)
+- Choisir/construire le frontend applicatif (pas juste la landing page) — **personne assignée à ce jour**
+- Contrôle d'accès par rôle (user/admin) et sécurité applicative
 - Relier la landing page à GitHub Pages / au pipeline
-- Committer/référencer les mockups dans `docs/mockups/` (aujourd'hui vide ; les PNG sont dans `mockup/mobile/`)
+- Committer les mockups dans `docs/mockups/`
 - Ajouter la section équipe/rôles dans `docs/processus-travail.md` (annoncée par l'index mais absente)
 - Nettoyer `cd.yml` (un ancien job `deploy` basé sur Render/GHCR traîne encore sous le nouveau système staging/prod — a priori mort mais pas supprimé) et le fichier vide `fick` à la racine
-- SSO Microsoft (prévu au départ, non implémenté : l'auth actuelle est email + mot de passe)
-- Table `messages` présente en base mais aucun endpoint : le contact passe aujourd'hui par un lien profond **Teams** (`https://teams.microsoft.com/l/chat/0/0?users=<email>`) avec un `mailto:` en secours
-- Groupes d'« amis prioritaires » : retirés du frontend (aucun endpoint ni table côté API) — la landing page les annonce encore comme fonctionnalité à venir
-- Tests automatisés du frontend (aucun environnement DOM en CI — voir la section « Limites connues » de `docs/frontend.md`)
 
 ## 7. Plan proposé semaines 2–4 (à valider avec l'équipe, rôles pas confirmés)
 

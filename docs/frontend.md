@@ -1,13 +1,7 @@
 # Frontend
 
-L'application web servie par Express depuis `public/`. Pas de framework, pas de
-bundler : des pages HTML statiques et des modules ES chargés tels quels
-(`<script type="module">`). Tailwind arrive par CDN, la configuration commune
-est dans `public/js/tailwind-setup.js`.
-
-Ce choix est assumé : il n'y a aucune étape de build côté client, ce qui
-maintient le pipeline simple et permet à `compose.dev.yaml` de monter `public/`
-en lecture seule pour un rechargement immédiat.
+Le frontend est en HTML/JS/CSS.
+Les fichiers sont situés dans le dossier `public/`, qui est servi tels quels (fichiers statics) par le serveur web.
 
 ## Organisation des fichiers
 
@@ -35,18 +29,6 @@ public/
 Les briques communes (navigation, cartes, partage) vivent dans `ui.js` : chaque
 page pose des conteneurs vides et ce module les remplit. C'est ce qui évite que
 la navigation diverge d'une page à l'autre.
-
-## Paliers responsive
-
-Le HTML est identique à toutes les tailles ; c'est `css/app.css` qui déplace la
-navigation. Les trois paliers reprennent la maquette Figma :
-
-| Largeur | Navigation | Contenu |
-|---|---|---|
-| `< 768px` — mobile | barre du bas + bouton « + » flottant | une colonne, en-tête compact avec recherche |
-| `≥ 768px` — tablette | barre latérale **en icônes** (72 px) | 2 colonnes, recherche dans la barre du haut |
-| `≥ 1024px` — desktop | barre latérale **déployée** (240 px) | 3 colonnes, fiche détail sur 2 colonnes |
-| `≥ 1440px` | idem | 4 colonnes |
 
 Les deux barres de navigation existent toujours dans le DOM ; seule leur
 propriété `display` change. Redimensionner la fenêtre ne provoque donc aucun

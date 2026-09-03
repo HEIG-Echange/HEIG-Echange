@@ -148,15 +148,6 @@ export function buildContactMailto(listing, shareUrl) {
 }
 
 // Lien profond Teams ouvrant une conversation avec le donneur, message
-// pré-rempli. Teams n'expose pas de nom d'utilisateur public : l'adresse
-// e-mail est l'identifiant utilisé par le lien, et c'est justement celui que
-// l'API renvoie (`ownerEmail`). Comme tout le monde ici est sur le même
-// annuaire (@heig-vd.ch / @hes-so.ch), Teams retrouve la personne et ouvre le
-// chat directement.
-//
-// Le lien s'ouvre dans Teams web ; si le client lourd est installé, c'est lui
-// qui prend la main. Si l'adresse est absente (visiteur non connecté, l'API ne
-// l'expose alors pas), on renvoie null et l'appelant n'affiche pas le bouton.
 export function buildTeamsChatUrl(listing, shareUrl) {
   if (!listing.ownerEmail) return null;
   const message =

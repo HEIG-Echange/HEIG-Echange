@@ -2,12 +2,14 @@ import { api, initials, escapeHtml } from "../api.js";
 import {
   mountNav,
   mountAccountChip,
+  mountNotificationBell,
   mountViewToggle,
   listingCardHtml,
 } from "../ui.js";
 
 mountNav("home");
 mountAccountChip(document.getElementById("account-chip"));
+mountNotificationBell(document.getElementById("notif-bell"));
 
 const contentEl = document.getElementById("content");
 const id = new URLSearchParams(window.location.search).get("id");
@@ -55,8 +57,9 @@ async function render() {
   contentEl.innerHTML = `
     <div class="grid gap-5 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] lg:gap-8 items-start">
       <aside class="bg-white border border-appfg/10 rounded-2xl p-6 text-center lg:sticky lg:top-24">
-        <span class="w-20 h-20 rounded-full bg-brand text-white text-2xl font-bold flex items-center justify-center mx-auto mb-3">${escapeHtml(initials(user.displayName))}</span>
-        <p class="text-xl font-extrabold">${escapeHtml(user.displayName)}</p>
+        <span class="w-20 h-20 rounded-full bg-brand text-white text-2xl font-bold flex items-center justify-center mx-auto mb-3">${escapeHtml(user.initials ?? initials(user.displayName))}</span>
+        <p class="text-xl font-extrabold">${escapeHtml(user.displayName ?? `${user.initials ?? ""} — membre HEIG-VD`)}</p>
+        ${user.displayName ? "" : `<p class="text-[11px] text-mutedfg mt-1">Connectez-vous pour voir le nom complet.</p>`}
         ${memberSince ? `<p class="text-xs text-mutedfg mt-1">Membre depuis ${escapeHtml(memberSince)}</p>` : ""}
         <p class="text-sm text-mutedfg mt-2">${user.activeListings} annonce${user.activeListings === 1 ? "" : "s"} en ligne</p>
         <img src="/users/${user.id}/qr" alt="QR code du profil"

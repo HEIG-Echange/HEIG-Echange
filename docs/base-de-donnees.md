@@ -3,8 +3,16 @@
 La plateforme utilise **MariaDB 11.4** (LTS), administrée via **phpMyAdmin**.
 Tout tourne dans Docker : aucun serveur SQL n'est installé sur l'hôte.
 
-- Schéma : [`db/init/01-schema.sql`](../db/init/01-schema.sql)
+- Schéma (version courante, **v2**) : [`db/init/01-schema-v2.sql`](../db/init/01-schema-v2.sql)
 - Données de référence : [`db/init/02-seed.sql`](../db/init/02-seed.sql)
+- Ordre de suppression des tables : [`db/cleanup/drop-table-order.sql`](../db/cleanup/drop-table-order.sql)
+- Ancien schéma, conservé pour référence : [`db/archive/01-schema-v1.sql`](../db/archive/01-schema-v1.sql)
+
+> **v1 → v2.** La v1 avait divergé du code : les groupes d'amis, les annonces
+> prioritaires et les notifications n'existaient que dans des migrations (ou
+> nulle part), donc une base créée depuis l'init cassait la moitié des routes.
+> La v2 remet schéma et code en phase. Base déjà peuplée : appliquer
+> [`db/migrations/006-schema-v2.sql`](../db/migrations/006-schema-v2.sql).
 - Services : `db` et `phpmyadmin` dans [`compose.yaml`](../compose.yaml)
 
 ## Architecture
@@ -34,7 +42,10 @@ Tout tourne dans Docker : aucun serveur SQL n'est installé sur l'hôte.
 | `categories` | 2 (filtres) |
 | `listings` | 1 (grille), 2 (recherche FULLTEXT + catégorie), 3 (CRUD), 6 (`status`/`closed_at`) |
 | `listing_photos` | 1 (vignette), 4 (carrousel, `position`) |
-| `listing_interests` | inscription "je suis intéressé" sur une annonce (une ligne par couple annonce/utilisateur, `UNIQUE`) |
+| `listing_interests` | favoris / "je suis intéressé" (bouton étoile) — une ligne par couple annonce/utilisateur, `UNIQUE` |
+| `friends_groups`, `friends_group_members` | groupes d'amis d'un utilisateur |
+| `priority_groups` + `listings.is_priority` / `end_priority_at` | annonce réservée à certains groupes pendant une fenêtre de temps |
+| `notifications` | centre de notifications in-app (intérêt sur une annonce, décisions de modération) |
 | `messages` | 5 (contact donneur ↔ intéressé) |
 | `reports` | 9 (signalement de contenu) |
 | `moderation_logs` | 9 (historique des actions admin) |
@@ -139,7 +150,14 @@ Les migrations sont numérotées et doivent être appliquées **dans l'ordre** :
 | `002-email-verification.sql` | confirmation d'adresse à l'inscription |
 | `003-listing-interests.sql` | table `listing_interests` |
 | `004-email-reverification.sql` | `users.reverification_reminder_sent_at` + index `idx_users_email_verified` |
+| `004-friend-groups.sql` | tables `friends_groups`, `friends_group_members`, `priority_groups` + colonnes de priorité sur `listings` |
 | `005-app-settings.sql` | table `app_settings` (modèle et prompts de l'analyse IA) |
+| `006-schema-v2.sql` | mise à niveau vers le schéma **v2** : colonnes de priorité, groupes d'amis, table `notifications`, index `idx_reports_reporter` — idempotente, rejouable |
+
+> Deux migrations portent le numéro 004 (`004-email-reverification.sql` et
+> `004-friend-groups.sql`) : elles ont été écrites en parallèle sur deux
+> branches. Elles sont indépendantes, l'ordre entre elles n'a pas d'importance.
+> `006-schema-v2.sql` rattrape de toute façon ce qui manquerait.
 
 En développement, on peut simplement repartir de zéro :
 
@@ -148,28 +166,26 @@ docker compose down -v   # ATTENTION : -v supprime le volume db-data
 docker compose up --build
 ```
 
+Sans supprimer le volume (staging, ou pour garder les comptes de service), on
+peut vider puis reconstruire le schéma — l'ordre de suppression respecte les
+clés étrangères, sans avoir à désactiver `FOREIGN_KEY_CHECKS` :
+
+```bash
+./scripts/db-backup.sh                              # filet de sécurité d'abord
+docker compose exec -T -e MYSQL_PWD="$MARIADB_PASSWORD" \
+  db mariadb -u "$MARIADB_USER" "$MARIADB_DATABASE" < db/cleanup/drop-table-order.sql
+docker compose exec -T -e MYSQL_PWD="$MARIADB_PASSWORD" \
+  db mariadb -u "$MARIADB_USER" "$MARIADB_DATABASE" < db/init/01-schema-v2.sql
+docker compose exec -T -e MYSQL_PWD="$MARIADB_PASSWORD" \
+  db mariadb -u "$MARIADB_USER" "$MARIADB_DATABASE" < db/init/02-seed.sql
+```
+
 ## Données de démonstration
 
 `scripts/seed_demo_data.py` remplit une instance vide avec les comptes et les
 annonces de la maquette Figma (photos multiples comprises), pour une démo ou
-une reprise de développement. Il passe uniquement par l'API HTTP, donc toutes
-les règles métier s'appliquent — y compris la confirmation d'adresse, ce qui
-impose de démarrer l'app en mode test :
 
 ```bash
 docker compose -f compose.yaml -f compose.dev.yaml up --build -d
 python3 scripts/seed_demo_data.py
 ```
-
-Sans Python local, le script tourne aussi dans un conteneur (il n'utilise que
-la bibliothèque standard) :
-
-```bash
-docker run --rm --network host -v "$PWD:/work" -w /work python:3.12-alpine python scripts/seed_demo_data.py
-```
-
-Options utiles : `--dry-run` (affiche sans rien écrire), `--base-url` (cibler
-staging), `--photos-dir` (utiliser de vraies photos au lieu des visuels
-générés). Le script est réentrant : relancé, il réutilise les comptes existants
-et ne republie pas les annonces déjà en ligne.
-
