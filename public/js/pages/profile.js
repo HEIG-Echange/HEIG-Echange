@@ -9,6 +9,7 @@ import {
 } from "../api.js";
 import {
   mountNav,
+  mountNotificationBell,
   mountViewToggle,
   renderEmailBanner,
   listingCardHtml,
@@ -16,6 +17,7 @@ import {
 } from "../ui.js";
 
 mountNav("profile");
+mountNotificationBell(document.getElementById("notif-bell"));
 
 const user = await requireUser();
 
@@ -149,6 +151,89 @@ async function loadMyListings() {
 viewMode = mountViewToggle(document.getElementById("view-toggle"), (mode) => {
   viewMode = mode;
   renderListings();
+  renderFavorites();
 });
 
 await loadMyListings();
+
+// ---------------------------------------------------------------------------
+// Mes favoris (annonces marquees d'une etoile)
+// ---------------------------------------------------------------------------
+
+const favoritesEl = document.getElementById("favorites");
+
+let favorites = [];
+
+// Declaration de fonction (hoistee) : la bascule grille/compact, definie plus
+// haut dans le fichier, l'appelle pour re-rendre les favoris sans les
+// recharger.
+function renderFavorites() {
+  favoritesEl.className = `listing-grid${viewMode === "compact" ? " is-compact" : ""}`;
+
+  if (favorites.length === 0) {
+    favoritesEl.innerHTML = `
+      <div class="col-span-full text-center py-10 border border-dashed border-appfg/15 rounded-2xl">
+        <p class="text-sm text-mutedfg">Aucun favori pour l'instant.</p>
+        <p class="text-xs text-mutedfg mt-1">Touchez l'étoile sur une annonce pour la retrouver ici.</p>
+      </div>`;
+    return;
+  }
+
+  favoritesEl.innerHTML = favorites
+    .map((listing) => listingCardHtml(listing, viewMode))
+    .join("");
+}
+
+async function loadFavorites() {
+  try {
+    favorites = await api.get("/listings?interested=true");
+    renderFavorites();
+  } catch (err) {
+    favoritesEl.innerHTML = `<p class="col-span-full text-center text-sm text-red-600 py-6">${escapeHtml(err.message)}</p>`;
+  }
+}
+
+await loadFavorites();
+
+// ---------------------------------------------------------------------------
+// Suppression du compte (req 8)
+//
+// L'API (DELETE /auth/me) supprime des le premier appel : c'est donc au
+// frontend de s'assurer que la personne sait ce qu'elle fait. Deux garde-fous
+// plutot qu'un seul confirm() qu'on valide par reflexe : une confirmation, puis
+// la saisie exacte du mot SUPPRIMER.
+// ---------------------------------------------------------------------------
+
+const deleteAccountBtn = document.getElementById("delete-account-btn");
+const deleteFeedback = document.getElementById("delete-account-feedback");
+const CONFIRM_WORD = "SUPPRIMER";
+
+deleteAccountBtn.addEventListener("click", async () => {
+  deleteFeedback.textContent = "";
+
+  const confirmed = confirm(
+    "Supprimer définitivement votre compte ?" +
+      "\n\nVos annonces seront retirées et votre profil ne sera plus accessible." +
+      "\nCette action est irréversible."
+  );
+  if (!confirmed) return;
+
+  const typed = prompt(`Pour confirmer, tapez ${CONFIRM_WORD} en majuscules :`);
+  if (typed === null) return;
+  if (typed.trim() !== CONFIRM_WORD) {
+    deleteFeedback.textContent = `Suppression annulée : le mot ${CONFIRM_WORD} n'a pas été saisi.`;
+    return;
+  }
+
+  deleteAccountBtn.disabled = true;
+  deleteAccountBtn.textContent = "Suppression…";
+
+  try {
+    await api.del("/auth/me");
+    window.location.href = "index.html";
+  } catch (err) {
+    deleteFeedback.textContent = err.message;
+    deleteAccountBtn.disabled = false;
+    deleteAccountBtn.textContent = "Supprimer mon compte";
+  }
+});

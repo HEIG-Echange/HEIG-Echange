@@ -11,6 +11,7 @@ import { aiConfigured, analyzeItemPhoto } from "../ai";
 import { sendEmail } from "../mail";
 import { PUBLIC_BASE_URL, UPLOAD_DIR, absoluteUrl } from "../config";
 import { activeAccountSql } from "../auth/emailVerification";
+import { notify } from "../notifications";
 
 export const listingsRouter = Router();
 
@@ -25,7 +26,7 @@ const MIME_TO_MEDIA = {
 // ne peut pas remplir le volume d'uploads a lui seul.
 export const MAX_PHOTOS_PER_LISTING = 10;
 
-// En miroir de l'ENUM item_condition dans db/init/01-schema.sql.
+// En miroir de l'ENUM item_condition dans db/init/01-schema-v2.sql.
 const ITEM_CONDITIONS = [
   "neuf",
   "tres_bon",
@@ -143,14 +144,32 @@ export function listingShareUrl(id: number): string {
   return `${PUBLIC_BASE_URL}/listing.html?id=${id}`;
 }
 
+/**
+ * Initiales d'un nom d'affichage ("Martin Dupont" -> "MD"). Seule trace du
+ * proprietaire laissee a un visiteur anonyme : assez pour distinguer deux
+ * annonces, pas assez pour identifier quelqu'un.
+ */
+export function nameInitials(name: string | null): string | null {
+  if (!name) return null;
+  const letters = name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => [...part][0]?.toUpperCase() ?? "")
+    .join("");
+  return letters || null;
+}
+
 // includeContact : n'expose le nom et l'email du proprietaire qu'aux visiteurs
-// connectes. Un visiteur anonyme voit l'annonce mais aucune info de contact
-// (req: laisser voir les annonces sans etre connecte, sans divulguer nom/email).
+// connectes. Un visiteur anonyme voit l'annonce et les initiales du donneur,
+// mais aucune donnee personnelle (req: laisser voir les annonces sans etre
+// connecte, sans divulguer nom ni email).
 function toListingJson(row: ListingRow, includeContact: boolean) {
   return {
     id: row.id,
     ownerId: row.owner_id,
     ownerName: includeContact ? row.owner_name : null,
+    ownerInitials: nameInitials(row.owner_name),
     ownerEmail: includeContact ? row.owner_email : null,
     categoryId: row.category_id,
     categorySlug: row.category_slug,
@@ -539,10 +558,24 @@ listingsRouter.patch("/:id", requireAuth, async (req, res) => {
 // GET /listings — grille des annonces disponibles avec filtres
 // optionnels pour la recherche et les onglets de categorie  et pour "mes objets" sur le profil (ownerId).
 listingsRouter.get("/", async (req, res) => {
-  const { categoryId, ownerId, q } = req.query;
+  const { categoryId, ownerId, q, interested } = req.query;
 
   const where = ["l.deleted_at IS NULL", VISIBLE_OWNER];
   const params: (string | number)[] = [];
+
+  // ?interested=true : "mes favoris" (les annonces sur lesquelles j'ai clique
+  // sur l'etoile). Sans session il n'y a pas de favoris a montrer : liste vide
+  // plutot qu'une erreur, la page appelante gere l'affichage.
+  if (interested === "true") {
+    if (!req.session.userId) {
+      res.json([]);
+      return;
+    }
+    where.push(
+      "EXISTS (SELECT 1 FROM listing_interests li WHERE li.listing_id = l.id AND li.user_id = ?)"
+    );
+    params.push(req.session.userId);
+  }
 
   if (typeof categoryId === "string" && categoryId.trim()) {
     const id = Number(categoryId);
@@ -817,15 +850,29 @@ listingsRouter.post("/:id/interest", requireAuth, async (req, res) => {
        WHERE l.id = ?`,
       [req.session.userId, id]
     );
-    const notify = notifyRows[0];
-    if (notify) {
+    const target = notifyRows[0];
+    if (target) {
       await sendInterestNotification(
-        notify.owner_email,
-        notify.owner_name,
-        notify.interested_email,
-        notify.interested_name,
-        notify.listing_title
+        target.owner_email,
+        target.owner_name,
+        target.interested_email,
+        target.interested_name,
+        target.listing_title
       );
+
+      // Meme information, mais dans l'app : l'email peut se perdre, la cloche
+      // reste. Le nom de la personne interessee est deja connu du
+      // proprietaire (il lui est envoye par mail pour qu'il puisse la
+      // recontacter), on ne divulgue donc rien de plus ici.
+      await notify({
+        userId: listing.owner_id,
+        type: "listing_interest",
+        title: `${target.interested_name} est interesse par « ${target.listing_title} »`,
+        body: "Contactez cette personne via Teams pour organiser la remise.",
+        link: `listing.html?id=${id}`,
+        listingId: id,
+        actorId: req.session.userId,
+      });
     }
 
     res.status(201).json({ interested: true });
@@ -903,6 +950,17 @@ listingsRouter.delete("/:id", requireAuth, async (req, res) => {
       "INSERT INTO moderation_logs (actor_id, action, target_type, target_id, details) VALUES (?, 'delete_listing', 'listing', ?, ?)",
       [req.session.userId, id, JSON.stringify({ reason })]
     );
+
+    // Une annonce retiree par la moderation doit etre expliquee a son
+    // proprietaire, sinon elle disparait sans un mot.
+    await notify({
+      userId: access.ownerId,
+      type: "listing_removed",
+      title: "Une de vos annonces a ete retiree par la moderation",
+      body: `Motif : ${reason}`,
+      listingId: id,
+      actorId: req.session.userId,
+    });
   }
 
   res.status(204).send();

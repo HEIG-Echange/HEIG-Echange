@@ -46,7 +46,10 @@ Le prof veut que tout le monde parle à la présentation (~5 min chacun). Rappel
 ├── compose.yaml            # exécution locale de l'image de prod
 ├── compose.dev.yaml        # rechargement à chaud pour le dev local
 ├── db/
-│   ├── init/01-schema.sql  # schéma MariaDB (users, categories, listings, listing_photos, messages, reports, moderation_logs)
+│   ├── init/01-schema-v2.sql   # schéma MariaDB courant (v2 : + friends_groups, priority_groups, listing_interests, notifications, app_settings)
+│   ├── archive/01-schema-v1.sql # ancien schéma, conservé pour référence
+│   ├── cleanup/drop-table-order.sql # ordre de drop respectant les FK
+│   ├── migrations/006-schema-v2.sql # v1 (état prod) -> v2, idempotente
 │   ├── init/02-seed.sql
 │   └── schema.mwb          # MySQL Workbench
 ├── docs/
