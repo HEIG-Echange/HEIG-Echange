@@ -65,7 +65,10 @@ printf '%s\n' "$RELEASE_SHA" > .release
 # en production. db-backup.sh lit DB_BACKUP_PATH depuis le .env de
 # la machine et fabrique db_<environnement>_<date>_<heure>.sql.gz.
 echo "==> Sauvegarde de la base (${DEPLOY_ENV})"
-DEPLOY_ENV="$DEPLOY_ENV" ./scripts/db-backup.sh
+# DEPLOY_ENV="$DEPLOY_ENV" ./scripts/db-backup.sh
+export DEPLOY_ENV="$DEPLOY_ENV"
+dbbkpscript="./scripts/db-backup.sh"
+bash $dbbkpscript || sh $dbbkpscript
 
 
 # Reinjecte dans compose : tag d'image propre a l'environnement et
