@@ -7,6 +7,7 @@
 // conteneurs vides et ce module les remplit.
 // ---------------------------------------------------------------------------
 import {
+  api,
   getCurrentUser,
   getConfig,
   buildListingShareLinks,
@@ -42,6 +43,12 @@ const ICONS = {
   // Bulle de discussion : sert au bouton « Contacter via Teams ». On ne
   // reproduit pas le logo Microsoft (marque deposee), une icone neutre suffit.
   chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" width="18" height="18"><path d="M4 5.5h16a1 1 0 0 1 1 1V16a1 1 0 0 1-1 1H9.5L5 20.5V17H4a1 1 0 0 1-1-1V6.5a1 1 0 0 1 1-1z"/></svg>',
+  // Etoile pleine : etat "annonce en favori" du bouton Interesse.
+  starFilled: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round" width="20" height="20"><path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z"/></svg>',
+  flag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" width="18" height="18"><path d="M5 21V4M5 4h11l-1.6 3.5L16 11H5"/></svg>',
+  bell: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" width="20" height="20"><path d="M18 16v-5a6 6 0 1 0-12 0v5l-1.5 2.5h15z"/><path d="M10 19.5a2 2 0 0 0 4 0"/></svg>',
+  shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" width="20" height="20"><path d="M12 3.5 5 6v5.5c0 4.2 2.9 7.6 7 9 4.1-1.4 7-4.8 7-9V6z"/><path d="m9 12 2 2 4-4"/></svg>',
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="m5 12.5 4.5 4.5L19 7"/></svg>',
   box: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" width="34" height="34"><path d="M3 8.5 12 4l9 4.5v7L12 20l-9-4.5z"/><path d="M3 8.5 12 13l9-4.5M12 13v7"/></svg>',
 };
 
@@ -159,7 +166,12 @@ function photoBlock(listing, extraClass = "") {
 // on affiche une mention neutre et une pastille discrete.
 function ownerChip(listing) {
   if (!listing.ownerName) {
-    return `<span class="text-xs text-mutedfg truncate">Membre HEIG-VD</span>`;
+    // Les initiales, elles, restent renvoyees a tout le monde : de quoi
+    // distinguer deux donneurs sans rien reveler de leur identite.
+    const badge = listing.ownerInitials
+      ? `<span class="w-5 h-5 rounded-full bg-mutedbg text-mutedfg text-[9px] font-bold flex items-center justify-center flex-shrink-0">${escapeHtml(listing.ownerInitials)}</span>`
+      : "";
+    return `<span class="flex items-center gap-1.5 min-w-0">${badge}<span class="text-xs text-mutedfg truncate">Membre HEIG-VD</span></span>`;
   }
   return `
     <span class="flex items-center gap-1.5 min-w-0">
@@ -419,4 +431,49 @@ export async function mountAccountChip(container) {
       <span class="hidden lg:block text-sm font-bold max-w-[10rem] truncate">${escapeHtml(user.displayName)}</span>
     </a>`;
   return user;
+}
+
+// ---------------------------------------------------------------------------
+// Cloche de notifications
+// ---------------------------------------------------------------------------
+
+/**
+ * Monte la cloche (avec pastille du nombre de non-lues) dans `container`.
+ * N'affiche rien pour un visiteur anonyme : les notifications sont
+ * personnelles, la cloche n'aurait rien a montrer.
+ *
+ * Le compteur est lu une fois au chargement de la page. La navigation se fait
+ * en rechargement complet dans cette app : pas besoin de rafraichissement
+ * periodique, chaque page repart d'un compteur frais.
+ */
+export async function mountNotificationBell(container) {
+  if (!container) return;
+
+  const user = await getCurrentUser();
+  if (!user) {
+    container.innerHTML = "";
+    return;
+  }
+
+  let unread = 0;
+  try {
+    const data = await api.get("/notifications/unread-count");
+    unread = Number(data?.unreadCount ?? 0);
+  } catch {
+    // Compteur indisponible : on montre la cloche sans pastille plutot que de
+    // faire disparaitre l'acces aux notifications.
+    unread = 0;
+  }
+
+  const badge =
+    unread > 0
+      ? `<span class="absolute -top-0.5 -right-0.5 min-w-[1.15rem] h-[1.15rem] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center">${unread > 99 ? "99+" : unread}</span>`
+      : "";
+
+  container.innerHTML = `
+    <a href="notifications.html" title="Mes notifications"
+       aria-label="Mes notifications${unread > 0 ? ` (${unread} non lues)` : ""}"
+       class="relative w-9 h-9 rounded-full bg-secondarybg flex items-center justify-center text-mutedfg hover:text-appfg transition-colors">
+      ${icon("bell")}${badge}
+    </a>`;
 }

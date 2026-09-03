@@ -22,8 +22,13 @@
          class="w-9 h-9 rounded-full bg-secondarybg flex items-center justify-center flex-shrink-0 hover:bg-mutedbg transition-colors">←</a>
       <h1 class="text-lg font-extrabold truncate">Détail de l'annonce</h1>
       <div class="ml-auto relative flex items-center gap-2">
+        <!-- Favori ("interesse") : demasque par listing.js une fois l'annonce
+             chargee, avec l'etat courant si le visiteur est connecte. -->
+        <button id="fav-btn" type="button" title="Marquer comme intéressé" aria-label="Marquer comme intéressé" aria-pressed="false"
+                class="hidden w-9 h-9 rounded-full bg-secondarybg items-center justify-center text-mutedfg hover:text-appfg transition-colors"></button>
         <button id="share-btn" type="button" title="Partager cette annonce" aria-label="Partager cette annonce"
                 class="hidden w-9 h-9 rounded-full bg-secondarybg items-center justify-center text-mutedfg hover:text-appfg transition-colors"></button>
+        <div id="notif-bell"></div>
         <div id="account-chip" class="hidden md:block"></div>
       </div>
     </div>

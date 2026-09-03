@@ -5,16 +5,6 @@ declare(strict_types=1);
 require_once __DIR__ . '/config.php';
 
 /**
- * Version du proxy, exposée par GET /__proxy-status.
- *
- * Ces fichiers ne passent PAS par le pipeline CI/CD : ils sont déposés à la
- * main sur l'hébergement mutualisé. Ce marqueur est le seul moyen simple de
- * vérifier de l'extérieur que la version en ligne est bien celle du dépôt —
- * un décalage ici a déjà coûté une longue chasse au bug d'upload.
- */
-const PROXY_VERSION = '2026-08-29';
-
-/**
  * Construit l'URL distante en conservant :
  * - le chemin demandé
  * - les paramètres GET
@@ -78,12 +68,8 @@ function getRequestHeaders(): array
 
 /**
  * Construit les headers HTTP à envoyer au serveur distant.
- *
- * @param string|null $overrideContentType Content-Type à substituer à celui de
- *        la requête entrante. Sert au corps multipart reconstruit : la
- *        frontière d'origine ne correspond alors plus à rien.
  */
-function buildForwardHeaders(?string $overrideContentType = null): array
+function buildForwardHeaders(bool $dropContentType = false): array
 {
     $incomingHeaders = getRequestHeaders();
     $headers = [];
@@ -91,28 +77,20 @@ function buildForwardHeaders(?string $overrideContentType = null): array
     // Ces headers sont gérés par cURL ou doivent être remplacés.
     $skipped = ['host', 'content-length', 'connection', 'accept-encoding'];
 
-    if ($overrideContentType !== null) {
+    // Corps multipart reconstruit : la frontière du Content-Type d'origine ne
+    // correspond plus à rien, c'est cURL qui pose le sien.
+    if ($dropContentType) {
         $skipped[] = 'content-type';
     }
 
     foreach ($incomingHeaders as $name => $value) {
         $lowerName = strtolower($name);
 
-        // Ces headers sont gérés par cURL ou doivent être remplacés.
-        if (in_array($lowerName, [
-            'host',
-            'content-length',
-            'connection',
-            'accept-encoding',
-        ], true)) {
+        if (in_array($lowerName, $skipped, true)) {
             continue;
         }
 
         $headers[] = $name . ': ' . $value;
-    }
-
-    if ($overrideContentType !== null) {
-        $headers[] = 'Content-Type: ' . $overrideContentType;
     }
 
     // Expect: 100-continue est ajouté d'office par cURL au-delà de 1 Ko de
@@ -139,165 +117,41 @@ function buildForwardHeaders(?string $overrideContentType = null): array
 }
 
 /**
- * Ajoute un champ texte au corps multipart en cours de construction.
- */
-function appendTextPart(
-    string &$body,
-    string $boundary,
-    string $name,
-    string $value
-): void {
-    $body .= '--' . $boundary . "\r\n";
-    $body .= 'Content-Disposition: form-data; name="' . $name . '"' . "\r\n\r\n";
-    $body .= $value . "\r\n";
-}
-
-/**
- * Aplatit un champ $_POST (scalaire ou tableau imbriqué) en parties texte.
- */
-function appendPostField(
-    string &$body,
-    string $boundary,
-    string $name,
-    mixed $value
-): void {
-    if (is_array($value)) {
-        foreach ($value as $key => $item) {
-            appendPostField($body, $boundary, $name . '[' . $key . ']', $item);
-        }
-
-        return;
-    }
-
-    if (is_scalar($value) || $value === null) {
-        appendTextPart($body, $boundary, $name, (string) $value);
-    }
-}
-
-/**
- * Normalise une entrée de $_FILES.
- *
- * PHP l'expose sous deux formes selon le nom du champ : « photo » donne des
- * chaînes, « photos[] » donne des tableaux parallèles. On ramène les deux à
- * une liste de fichiers pour les traiter de la même façon.
- *
- * @return array<int, array{name: string, type: string, tmp_name: string, error: int}>
- */
-function normaliseUploadedFiles(array $file): array
-{
-    if (!isset($file['tmp_name'])) {
-        return [];
-    }
-
-    if (!is_array($file['tmp_name'])) {
-        return [[
-            'name' => (string) ($file['name'] ?? 'upload'),
-            'type' => (string) ($file['type'] ?? ''),
-            'tmp_name' => (string) $file['tmp_name'],
-            'error' => (int) ($file['error'] ?? UPLOAD_ERR_OK),
-        ]];
-    }
-
-    $files = [];
-
-    foreach (array_keys($file['tmp_name']) as $index) {
-        $files[] = [
-            'name' => (string) ($file['name'][$index] ?? 'upload'),
-            'type' => (string) ($file['type'][$index] ?? ''),
-            'tmp_name' => (string) $file['tmp_name'][$index],
-            'error' => (int) ($file['error'][$index] ?? UPLOAD_ERR_OK),
-        ];
-    }
-
-    return $files;
-}
-
-/**
  * Reconstruit un corps multipart que PHP a déjà consommé.
  *
  * Filet de sécurité : voir la note sur enable_post_data_reading dans
- * proxyRequest(). Le corps est réassemblé à la main plutôt que confié au
- * tableau CURLOPT_POSTFIELDS de cURL, parce qu'un tableau PHP ne peut pas
- * porter deux fois la même clef : plusieurs photos envoyées dans un champ
- * « photos » y perdaient tout sauf un fichier. Ici chaque fichier devient une
- * partie distincte et les noms de champ répétés survivent.
+ * proxyRequest(). cURL regénère lui-même le corps (et sa frontière) à partir
+ * du tableau renvoyé, donc l'appelant doit laisser cURL poser le
+ * Content-Type.
  *
- * @return array{body: string, contentType: string}|null null si rien à envoyer.
+ * Limite connue : PHP n'expose qu'UN fichier par nom de champ quand ce nom ne
+ * se termine pas par « [] ». Un envoi de plusieurs photos en une requête perd
+ * donc tout sauf la dernière — d'où l'intérêt de désactiver complètement le
+ * parsing plutôt que de dépendre de cette reconstruction.
  */
-function rebuildMultipartBody(): ?array
+function rebuildMultipartBody(): array
 {
-    $boundary = '----proxyBoundary' . bin2hex(random_bytes(16));
-    $body = '';
-    $hasPart = false;
+    $fields = [];
 
     foreach ($_POST as $name => $value) {
-        appendPostField($body, $boundary, (string) $name, $value);
-        $hasPart = true;
-    }
-
-    foreach ($_FILES as $name => $file) {
-        foreach (normaliseUploadedFiles($file) as $uploaded) {
-            if ($uploaded['error'] !== UPLOAD_ERR_OK || $uploaded['tmp_name'] === '') {
-                continue;
-            }
-
-            $content = @file_get_contents($uploaded['tmp_name']);
-
-            if ($content === false) {
-                continue;
-            }
-
-            // Un guillemet ou un saut de ligne dans le nom de fichier
-            // casserait l'en-tête de la partie (et permettrait d'en injecter
-            // une autre) : ils sont retirés, le nom n'a qu'une valeur
-            // indicative pour le serveur distant.
-            $filename = str_replace(['"', "\r", "\n"], '', $uploaded['name']);
-            $type = $uploaded['type'] !== ''
-                ? $uploaded['type']
-                : 'application/octet-stream';
-
-            $body .= '--' . $boundary . "\r\n";
-            $body .= 'Content-Disposition: form-data; name="' . $name
-                . '"; filename="' . ($filename !== '' ? $filename : 'upload') . '"' . "\r\n";
-            $body .= 'Content-Type: ' . $type . "\r\n\r\n";
-            $body .= $content . "\r\n";
-            $hasPart = true;
+        if (is_scalar($value)) {
+            $fields[$name] = (string) $value;
         }
     }
 
-    if (!$hasPart) {
-        return null;
+    foreach ($_FILES as $name => $file) {
+        if (!is_string($file['tmp_name'] ?? null) || $file['tmp_name'] === '') {
+            continue;
+        }
+
+        $fields[$name] = new CURLFile(
+            $file['tmp_name'],
+            $file['type'] ?: 'application/octet-stream',
+            $file['name'] ?: 'upload'
+        );
     }
 
-    $body .= '--' . $boundary . '--' . "\r\n";
-
-    return [
-        'body' => $body,
-        'contentType' => 'multipart/form-data; boundary=' . $boundary,
-    ];
-}
-
-/**
- * GET /__proxy-status : état du proxy lui-même, sans toucher au serveur
- * distant. Permet de vérifier d'un simple curl que la version déployée est à
- * jour et que le corps des requêtes traverse bien : enablePostDataReading doit
- * valoir false, sinon c'est le chemin de reconstruction qui travaille.
- */
-function proxyStatus(): void
-{
-    header('Content-Type: application/json');
-    header('Cache-Control: no-store');
-
-    echo json_encode([
-        'proxyVersion' => PROXY_VERSION,
-        'phpVersion' => PHP_VERSION,
-        'sapi' => PHP_SAPI,
-        'enablePostDataReading' => (bool) ini_get('enable_post_data_reading'),
-        'fileUploads' => (bool) ini_get('file_uploads'),
-        'postMaxSize' => ini_get('post_max_size'),
-        'uploadMaxFilesize' => ini_get('upload_max_filesize'),
-        'curl' => extension_loaded('curl'),
-    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+    return $fields;
 }
 
 /**
@@ -322,22 +176,17 @@ function proxyRequest(): void
     // le serveur distant répond « photo (fichier image) est requis » et
     // l'upload d'images ne fonctionne jamais à travers ce proxy.
     //
-    // Deux défenses, dans cet ordre :
-    //  1. enable_post_data_reading=0 (voir .user.ini et .htaccess) : PHP ne
-    //     touche plus au corps, php://input redevient lisible, et la requête
-    //     traverse à l'identique, octet pour octet. C'est le chemin normal.
-    //  2. Si la directive n'a pas pu être appliquée — .user.ini absent du
-    //     dépôt FTP (les clients FTP masquent volontiers les fichiers dont le
-    //     nom commence par un point), hébergement qui l'ignore — le corps est
-    //     reconstruit depuis $_POST / $_FILES. Plus coûteux, mais l'upload
-    //     fonctionne quand même.
-    // GET /__proxy-status indique laquelle des deux est active.
+    // Le vrai correctif est enable_post_data_reading=0 (voir .user.ini et
+    // .htaccess) : PHP ne touche plus au corps, php://input redevient
+    // lisible, et la requête traverse à l'identique — y compris avec
+    // plusieurs fichiers. Le code ci-dessous n'est qu'un filet de sécurité si
+    // cette directive n'a pas pu être appliquée sur l'hébergement.
     $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
     $isMultipart = stripos($contentType, 'multipart/form-data') !== false;
-    $rebuilt = null;
+    $rebuiltFields = null;
 
     if ($body === '' && $isMultipart && ($_POST !== [] || $_FILES !== [])) {
-        $rebuilt = rebuildMultipartBody();
+        $rebuiltFields = rebuildMultipartBody();
     }
 
     $curl = curl_init();
@@ -353,7 +202,7 @@ function proxyRequest(): void
 
         CURLOPT_CUSTOMREQUEST => $method,
 
-        CURLOPT_HTTPHEADER => buildForwardHeaders($rebuilt['contentType'] ?? null),
+        CURLOPT_HTTPHEADER => buildForwardHeaders($rebuiltFields !== null),
 
         CURLOPT_RETURNTRANSFER => false,
 
@@ -439,15 +288,10 @@ function proxyRequest(): void
     ]);
 
     // Envoie le body pour les requêtes POST, PUT, PATCH, etc.
-    if (
-        $body !== false &&
-        $body !== '' &&
-        !in_array($method, ['GET', 'HEAD'], true)
-    ) {
-        curl_setopt($curl, CURLOPT_POSTFIELDS, $body);
     if (!in_array($method, ['GET', 'HEAD'], true)) {
-        if ($rebuilt !== null) {
-            curl_setopt($curl, CURLOPT_POSTFIELDS, $rebuilt['body']);
+        if ($rebuiltFields !== null) {
+            // Tableau : cURL construit lui-même le corps multipart.
+            curl_setopt($curl, CURLOPT_POSTFIELDS, $rebuiltFields);
         } elseif ($body !== '') {
             curl_setopt($curl, CURLOPT_POSTFIELDS, $body);
         }
@@ -479,9 +323,5 @@ function proxyRequest(): void
     curl_close($curl);
 }
 
-if ((parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/') === '/__proxy-status') {
-    proxyStatus();
-} else {
-    proxyRequest();
-}
+proxyRequest();
 

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Échange — Profil</title>
+<title>Échange — Notifications</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -20,17 +20,20 @@
     <div class="app-container py-3 flex items-center gap-3">
       <a href="index.html" aria-label="Retour à l'accueil"
          class="w-9 h-9 rounded-full bg-secondarybg flex items-center justify-center flex-shrink-0 hover:bg-mutedbg transition-colors">←</a>
-      <h1 class="text-lg font-extrabold truncate">Profil</h1>
+      <h1 class="text-lg font-extrabold truncate">Notifications</h1>
       <div class="ml-auto flex items-center gap-2">
-        <div id="notif-bell"></div>
+        <button id="read-all-btn" type="button"
+                class="hidden text-sm font-bold border border-appfg/15 rounded-xl px-3 py-2 hover:bg-secondarybg transition-colors">
+          Tout marquer comme lu
+        </button>
         <div id="account-chip" class="hidden md:block"></div>
       </div>
     </div>
   </header>
 
   <main class="app-main">
-    <div class="app-container pt-4">
-      <div id="content">
+    <div class="app-container pt-4 max-w-3xl">
+      <div id="list" class="space-y-2">
         <p class="text-center text-sm text-mutedfg py-10">Chargement…</p>
       </div>
     </div>
@@ -39,6 +42,6 @@
   <nav class="bottom-nav" aria-label="Navigation principale"></nav>
 </div>
 
-<script type="module" src="js/pages/user.js"></script>
+<script type="module" src="js/pages/notifications.js"></script>
 </body>
 </html>

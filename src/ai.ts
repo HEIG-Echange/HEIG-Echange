@@ -14,7 +14,7 @@
 import { getAiSettings, renderUserPrompt } from "./aiSettings";
 
 // Les etats possibles, en miroir de l'ENUM item_condition (voir listings.ts /
-// db/init/01-schema.sql). Duplique ici pour garder ai.ts autonome.
+// db/init/01-schema-v2.sql). Duplique ici pour garder ai.ts autonome.
 const ITEM_CONDITIONS = [
   "neuf",
   "tres_bon",

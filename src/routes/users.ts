@@ -4,6 +4,7 @@ import type { RowDataPacket } from "mysql2";
 import { pool } from "../db";
 import { PUBLIC_BASE_URL } from "../config";
 import { isAccountSuspended } from "../auth/emailVerification";
+import { nameInitials } from "./listings";
 
 export const usersRouter = Router();
 
@@ -52,10 +53,16 @@ usersRouter.get("/:id", async (req, res) => {
     return;
   }
 
+  // Visiteur anonyme : le profil reste consultable (on peut parcourir les
+  // annonces sans compte) mais sans donnee personnelle — seules les initiales
+  // sont renvoyees, comme sur les cartes d'annonce.
+  const includeIdentity = Boolean(req.session.userId);
+
   res.json({
     id: user.id,
-    displayName: user.display_name,
-    avatarUrl: user.avatar_url,
+    displayName: includeIdentity ? user.display_name : null,
+    initials: nameInitials(user.display_name),
+    avatarUrl: includeIdentity ? user.avatar_url : null,
     createdAt: user.created_at,
     activeListings: user.active_listings,
     profileUrl: profileUrl(user.id),
