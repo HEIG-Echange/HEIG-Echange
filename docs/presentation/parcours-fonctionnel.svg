@@ -1,0 +1,197 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 940" width="1600" height="940" font-family="Segoe UI, Arial, Helvetica, sans-serif">
+  <rect width="1600" height="940" fill="#ffffff"/>
+
+  <!-- ===== En-tete ===== -->
+  <text x="60" y="56" font-size="32" font-weight="700" fill="#1a1816">HEIG-Échange — Le parcours, et ce qui tourne derrière</text>
+  <text x="60" y="86" font-size="16" fill="#6f6b65">Trois chemins : donner un objet · en trouver un · garder la plateforme saine — avec l'appel d'API correspondant à chaque étape</text>
+  <rect x="60" y="100" width="130" height="4" fill="#c8102e"/>
+  <rect x="190" y="101" width="1350" height="2" fill="#e6e2dc"/>
+
+  <!-- =========== BANDE A : donner =========== -->
+  <rect x="60" y="130" width="1480" height="225" rx="14" fill="#fdeef1" stroke="#edc3cb" stroke-width="1.5"/>
+  <text x="88" y="163" font-size="20" font-weight="700" fill="#1a1816">Donner un objet</text>
+  <text x="300" y="163" font-size="14" fill="#6f6b65">objectif : que publier prenne moins d'une minute, photo comprise</text>
+
+  <rect x="90" y="180" width="260" height="150" rx="12" fill="#ffffff" stroke="#edc3cb" stroke-width="1.5"/>
+  <circle cx="118" cy="208" r="14" fill="#c8102e"/>
+  <text x="118" y="213" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">1</text>
+  <text x="142" y="213" font-size="16" font-weight="700" fill="#1a1816">Une photo</text>
+  <text x="110" y="245" font-size="13" fill="#1a1816">Prise depuis le téléphone,</text>
+  <text x="110" y="265" font-size="13" fill="#1a1816">glissée-déposée sur desktop.</text>
+  <text x="110" y="292" font-size="12.5" fill="#6f6b65">Taille, format et nombre</text>
+  <text x="110" y="310" font-size="12.5" fill="#6f6b65">contrôlés avant l'envoi.</text>
+
+  <line x1="356" y1="255" x2="368" y2="255" stroke="#c9a3ac" stroke-width="2"/>
+  <polygon points="374,255 364,250 364,260" fill="#c9a3ac"/>
+
+  <rect x="380" y="180" width="260" height="150" rx="12" fill="#ffffff" stroke="#edc3cb" stroke-width="1.5"/>
+  <circle cx="408" cy="208" r="14" fill="#c8102e"/>
+  <text x="408" y="213" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">2</text>
+  <text x="432" y="213" font-size="16" font-weight="700" fill="#1a1816">L'IA propose</text>
+  <text x="400" y="245" font-size="13" fill="#1a1816">Catégorie, état et description</text>
+  <text x="400" y="265" font-size="13" fill="#1a1816">pré-remplis à partir de l'image.</text>
+  <text x="400" y="292" font-size="12.5" fill="#6f6b65">POST /listings/ai/analyze</text>
+  <text x="400" y="310" font-size="12.5" fill="#6f6b65">Option : sans clé, l'app marche.</text>
+
+  <line x1="646" y1="255" x2="658" y2="255" stroke="#c9a3ac" stroke-width="2"/>
+  <polygon points="664,255 654,250 654,260" fill="#c9a3ac"/>
+
+  <rect x="670" y="180" width="260" height="150" rx="12" fill="#ffffff" stroke="#edc3cb" stroke-width="1.5"/>
+  <circle cx="698" cy="208" r="14" fill="#c8102e"/>
+  <text x="698" y="213" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">3</text>
+  <text x="722" y="213" font-size="16" font-weight="700" fill="#1a1816">L'humain décide</text>
+  <text x="690" y="245" font-size="13" fill="#1a1816">Le donneur corrige ce qu'il veut :</text>
+  <text x="690" y="265" font-size="13" fill="#1a1816">rien n'est publié automatiquement.</text>
+  <text x="690" y="292" font-size="12.5" fill="#6f6b65">Le même formulaire sert à la</text>
+  <text x="690" y="310" font-size="12.5" fill="#6f6b65">création et à la modification.</text>
+
+  <line x1="936" y1="255" x2="948" y2="255" stroke="#c9a3ac" stroke-width="2"/>
+  <polygon points="954,255 944,250 944,260" fill="#c9a3ac"/>
+
+  <rect x="960" y="180" width="260" height="150" rx="12" fill="#ffffff" stroke="#edc3cb" stroke-width="1.5"/>
+  <circle cx="988" cy="208" r="14" fill="#c8102e"/>
+  <text x="988" y="213" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">4</text>
+  <text x="1012" y="213" font-size="16" font-weight="700" fill="#1a1816">Publication</text>
+  <text x="980" y="245" font-size="13" fill="#1a1816">L'annonce est créée, puis les</text>
+  <text x="980" y="265" font-size="13" fill="#1a1816">photos partent une par une.</text>
+  <text x="980" y="292" font-size="12.5" fill="#6f6b65">POST /listings (+ photos)</text>
+  <text x="980" y="310" font-size="12.5" fill="#6f6b65">Un envoi raté ne crée pas de doublon.</text>
+
+  <line x1="1226" y1="255" x2="1238" y2="255" stroke="#c9a3ac" stroke-width="2"/>
+  <polygon points="1244,255 1234,250 1234,260" fill="#c9a3ac"/>
+
+  <rect x="1250" y="180" width="260" height="150" rx="12" fill="#ffffff" stroke="#edc3cb" stroke-width="1.5"/>
+  <circle cx="1278" cy="208" r="14" fill="#c8102e"/>
+  <text x="1278" y="213" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">5</text>
+  <text x="1302" y="213" font-size="16" font-weight="700" fill="#1a1816">Diffusion</text>
+  <text x="1270" y="245" font-size="13" fill="#1a1816">Option « avant-première » :</text>
+  <text x="1270" y="265" font-size="13" fill="#1a1816">visible d'abord par ses cercles.</text>
+  <text x="1270" y="292" font-size="12.5" fill="#6f6b65">Passé le délai, l'annonce devient</text>
+  <text x="1270" y="310" font-size="12.5" fill="#6f6b65">publique — sans tâche de fond.</text>
+
+  <!-- =========== BANDE B : trouver =========== -->
+  <rect x="60" y="375" width="1480" height="225" rx="14" fill="#eef3fa" stroke="#b7c9e2" stroke-width="1.5"/>
+  <text x="88" y="408" font-size="20" font-weight="700" fill="#1a1816">Trouver et obtenir</text>
+  <text x="330" y="408" font-size="14" fill="#6f6b65">objectif : remplacer les groupes WhatsApp et les affiches par un seul endroit cherchable</text>
+
+  <rect x="90" y="425" width="260" height="150" rx="12" fill="#ffffff" stroke="#b7c9e2" stroke-width="1.5"/>
+  <circle cx="118" cy="453" r="14" fill="#1a5fa8"/>
+  <text x="118" y="458" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">1</text>
+  <text x="142" y="458" font-size="16" font-weight="700" fill="#1a1816">Recherche</text>
+  <text x="110" y="490" font-size="13" fill="#1a1816">Texte libre + filtre par catégorie,</text>
+  <text x="110" y="510" font-size="13" fill="#1a1816">résultats à la frappe.</text>
+  <text x="110" y="537" font-size="12.5" fill="#6f6b65">GET /listings?q=&amp;category=</text>
+  <text x="110" y="555" font-size="12.5" fill="#6f6b65">Recherche FULLTEXT côté base.</text>
+
+  <line x1="356" y1="500" x2="368" y2="500" stroke="#94aecd" stroke-width="2"/>
+  <polygon points="374,500 364,495 364,505" fill="#94aecd"/>
+
+  <rect x="380" y="425" width="260" height="150" rx="12" fill="#ffffff" stroke="#b7c9e2" stroke-width="1.5"/>
+  <circle cx="408" cy="453" r="14" fill="#1a5fa8"/>
+  <text x="408" y="458" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">2</text>
+  <text x="432" y="458" font-size="16" font-weight="700" fill="#1a1816">Fiche détail</text>
+  <text x="400" y="490" font-size="13" fill="#1a1816">Carrousel de photos, état, lieu,</text>
+  <text x="400" y="510" font-size="13" fill="#1a1816">profil public du donneur.</text>
+  <text x="400" y="537" font-size="12.5" fill="#6f6b65">GET /listings/:id</text>
+  <text x="400" y="555" font-size="12.5" fill="#6f6b65">Partage : lien, mail ou QR code.</text>
+
+  <line x1="646" y1="500" x2="658" y2="500" stroke="#94aecd" stroke-width="2"/>
+  <polygon points="664,500 654,495 654,505" fill="#94aecd"/>
+
+  <rect x="670" y="425" width="260" height="150" rx="12" fill="#ffffff" stroke="#b7c9e2" stroke-width="1.5"/>
+  <circle cx="698" cy="453" r="14" fill="#1a5fa8"/>
+  <text x="698" y="458" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">3</text>
+  <text x="722" y="458" font-size="16" font-weight="700" fill="#1a1816">Je suis intéressé</text>
+  <text x="690" y="490" font-size="13" fill="#1a1816">L'objet est mis de côté côté</text>
+  <text x="690" y="510" font-size="13" fill="#1a1816">receveur, le donneur est prévenu.</text>
+  <text x="690" y="537" font-size="12.5" fill="#6f6b65">POST /listings/:id/interest</text>
+  <text x="690" y="555" font-size="12.5" fill="#6f6b65">→ notification in-app immédiate.</text>
+
+  <line x1="936" y1="500" x2="948" y2="500" stroke="#94aecd" stroke-width="2"/>
+  <polygon points="954,500 944,495 944,505" fill="#94aecd"/>
+
+  <rect x="960" y="425" width="260" height="150" rx="12" fill="#ffffff" stroke="#b7c9e2" stroke-width="1.5"/>
+  <circle cx="988" cy="453" r="14" fill="#1a5fa8"/>
+  <text x="988" y="458" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">4</text>
+  <text x="1012" y="458" font-size="16" font-weight="700" fill="#1a1816">Prise de contact</text>
+  <text x="980" y="490" font-size="13" fill="#1a1816">Teams en un clic, message et lien</text>
+  <text x="980" y="510" font-size="13" fill="#1a1816">de l'annonce pré-remplis ; mail sinon.</text>
+  <text x="980" y="537" font-size="12.5" fill="#6f6b65">L'email du donneur n'est jamais</text>
+  <text x="980" y="555" font-size="12.5" fill="#6f6b65">renvoyé à un visiteur non connecté.</text>
+
+  <line x1="1226" y1="500" x2="1238" y2="500" stroke="#94aecd" stroke-width="2"/>
+  <polygon points="1244,500 1234,495 1234,505" fill="#94aecd"/>
+
+  <rect x="1250" y="425" width="260" height="150" rx="12" fill="#ffffff" stroke="#b7c9e2" stroke-width="1.5"/>
+  <circle cx="1278" cy="453" r="14" fill="#1a5fa8"/>
+  <text x="1278" y="458" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">5</text>
+  <text x="1302" y="458" font-size="16" font-weight="700" fill="#1a1816">Remise</text>
+  <text x="1270" y="490" font-size="13" fill="#1a1816">Le donneur passe l'annonce en</text>
+  <text x="1270" y="510" font-size="13" fill="#1a1816">« réservée », puis « donnée ».</text>
+  <text x="1270" y="537" font-size="12.5" fill="#6f6b65">L'annonce sort de la grille sans</text>
+  <text x="1270" y="555" font-size="12.5" fill="#6f6b65">être effacée : l'historique reste.</text>
+
+  <!-- =========== BANDE C : confiance =========== -->
+  <rect x="60" y="620" width="1480" height="225" rx="14" fill="#eef6ef" stroke="#bcd8c0" stroke-width="1.5"/>
+  <text x="88" y="653" font-size="20" font-weight="700" fill="#1a1816">Confiance et modération</text>
+  <text x="380" y="653" font-size="14" fill="#6f6b65">objectif : entre étudiants de l'école, et rien d'autre</text>
+
+  <rect x="90" y="670" width="260" height="150" rx="12" fill="#ffffff" stroke="#bcd8c0" stroke-width="1.5"/>
+  <circle cx="118" cy="698" r="14" fill="#2f7a45"/>
+  <text x="118" y="703" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">1</text>
+  <text x="142" y="703" font-size="16" font-weight="700" fill="#1a1816">Entrée filtrée</text>
+  <text x="110" y="735" font-size="13" fill="#1a1816">Adresse @heig-vd.ch ou</text>
+  <text x="110" y="755" font-size="13" fill="#1a1816">@hes-so.ch exigée.</text>
+  <text x="110" y="782" font-size="12.5" fill="#6f6b65">Code à 8 chiffres envoyé par</text>
+  <text x="110" y="800" font-size="12.5" fill="#6f6b65">mail · mot de passe haché (bcrypt).</text>
+
+  <line x1="356" y1="745" x2="368" y2="745" stroke="#9dc0a4" stroke-width="2"/>
+  <polygon points="374,745 364,740 364,750" fill="#9dc0a4"/>
+
+  <rect x="380" y="670" width="260" height="150" rx="12" fill="#ffffff" stroke="#bcd8c0" stroke-width="1.5"/>
+  <circle cx="408" cy="698" r="14" fill="#2f7a45"/>
+  <text x="408" y="703" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">2</text>
+  <text x="432" y="703" font-size="16" font-weight="700" fill="#1a1816">Reconfirmation</text>
+  <text x="400" y="735" font-size="13" fill="#1a1816">Tous les 6 mois : un diplômé</text>
+  <text x="400" y="755" font-size="13" fill="#1a1816">parti ne reste pas actif.</text>
+  <text x="400" y="782" font-size="12.5" fill="#6f6b65">Rappels automatiques, bandeau</text>
+  <text x="400" y="800" font-size="12.5" fill="#6f6b65">d'alerte, puis suspension.</text>
+
+  <line x1="646" y1="745" x2="658" y2="745" stroke="#9dc0a4" stroke-width="2"/>
+  <polygon points="664,745 654,740 654,750" fill="#9dc0a4"/>
+
+  <rect x="670" y="670" width="260" height="150" rx="12" fill="#ffffff" stroke="#bcd8c0" stroke-width="1.5"/>
+  <circle cx="698" cy="698" r="14" fill="#2f7a45"/>
+  <text x="698" y="703" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">3</text>
+  <text x="722" y="703" font-size="16" font-weight="700" fill="#1a1816">Signalement</text>
+  <text x="690" y="735" font-size="13" fill="#1a1816">N'importe quel membre connecté</text>
+  <text x="690" y="755" font-size="13" fill="#1a1816">peut signaler une annonce.</text>
+  <text x="690" y="782" font-size="12.5" fill="#6f6b65">POST /reports</text>
+  <text x="690" y="800" font-size="12.5" fill="#6f6b65">Les admins sont notifiés.</text>
+
+  <line x1="936" y1="745" x2="948" y2="745" stroke="#9dc0a4" stroke-width="2"/>
+  <polygon points="954,745 944,740 944,750" fill="#9dc0a4"/>
+
+  <rect x="960" y="670" width="260" height="150" rx="12" fill="#ffffff" stroke="#bcd8c0" stroke-width="1.5"/>
+  <circle cx="988" cy="698" r="14" fill="#2f7a45"/>
+  <text x="988" y="703" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">4</text>
+  <text x="1012" y="703" font-size="16" font-weight="700" fill="#1a1816">Console admin</text>
+  <text x="980" y="735" font-size="13" fill="#1a1816">File des signalements, retrait</text>
+  <text x="980" y="755" font-size="13" fill="#1a1816">d'annonce, blocage de compte.</text>
+  <text x="980" y="782" font-size="12.5" fill="#6f6b65">Routes /admin protégées par un</text>
+  <text x="980" y="800" font-size="12.5" fill="#6f6b65">contrôle de rôle à chaque appel.</text>
+
+  <line x1="1226" y1="745" x2="1238" y2="745" stroke="#9dc0a4" stroke-width="2"/>
+  <polygon points="1244,745 1234,740 1234,750" fill="#9dc0a4"/>
+
+  <rect x="1250" y="670" width="260" height="150" rx="12" fill="#ffffff" stroke="#bcd8c0" stroke-width="1.5"/>
+  <circle cx="1278" cy="698" r="14" fill="#2f7a45"/>
+  <text x="1278" y="703" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">5</text>
+  <text x="1302" y="703" font-size="16" font-weight="700" fill="#1a1816">Traçabilité</text>
+  <text x="1270" y="735" font-size="13" fill="#1a1816">Chaque décision laisse une trace</text>
+  <text x="1270" y="755" font-size="13" fill="#1a1816">et prévient la personne concernée.</text>
+  <text x="1270" y="782" font-size="12.5" fill="#6f6b65">Une notification qui échoue ne fait</text>
+  <text x="1270" y="800" font-size="12.5" fill="#6f6b65">jamais échouer l'action métier.</text>
+
+  <text x="60" y="890" font-size="13.5" fill="#6f6b65">Chaque appel sensible revalide le compte en base (bloqué ? email expiré ?) : une session ouverte ne suffit pas à garder l'accès.</text>
+</svg>
