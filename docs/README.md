@@ -10,4 +10,5 @@ Index de la documentation du projet.
 | [frontend.md](frontend.md) | Application web : organisation, paliers responsive, densités d'affichage |
 | [base-de-donnees.md](base-de-donnees.md) | Schéma MariaDB, accès admin, migrations |
 | [deploiement.md](deploiement.md) | Pipeline CI/CD, environnements, secrets |
+| [presentation/](presentation/) | Visuels (SVG) et trame de la présentation technique |
 | [mockups/](mockups/) | Maquettes des écrans + landing page |
